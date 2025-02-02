@@ -7,7 +7,8 @@
 
 This is a modified version of the popular **PPC Trucking** gamemode, originally created by **PowerPC603** for **San Andreas Multiplayer (SA:MP)**.
 This version has been updated to work with **open.mp**, the modern, open-source multiplayer mod for Grand Theft Auto: San Andreas.
-It includes **MySQL integration** for persistent data storage and **bcrypt** for secure password hashing.
+
+It includes **MySQL integration** for player data storage and **bcrypt** for secure password hashing.
 
 ---
 
