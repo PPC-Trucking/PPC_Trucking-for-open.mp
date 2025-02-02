@@ -1,7 +1,7 @@
 <div align="center">
   <img src="images/ppctrucking.png" alt="PPC_Trucking" width="650">
 
-# PPC Trucking (open.mp Version)
+# PPC Trucking (open.mp version)
 </div>
 
 
