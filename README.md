@@ -11,6 +11,9 @@ This version has been updated to work with **open.mp**, the modern, open-source 
 It includes **MySQL integration** for player data storage and **bcrypt** for secure password hashing.
 
 ---
+> [!WARNING]  
+> Currently, the MySQL integration only handles player data. Other systems such as houses, businesses, cameras, etc., are still stored in .ini files. The migration of these systems to MySQL is actively in progress.
+---
 
 ## **Features**
 - A fully functional trucking gamemode with missions, jobs, and economy systems.
