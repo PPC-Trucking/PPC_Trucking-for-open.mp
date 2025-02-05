@@ -95,15 +95,15 @@ It includes **MySQL integration** for player data storage and **bcrypt** for sec
 ---
 
 ## **Credits**
-- **PowerPC603**: Original creator of the PPC Trucking gamemode.
+- **PowerPC603**: Original creator of the `PPC Trucking` gamemode.
 - **CodeAlDente**: For maintaining the gamemode.
 - **open.mp Team**: For creating and maintaining the open.mp project.
-- **pBlueG**: For the MySQL plugin.
+- **pBlueG**: For the `MySQL` plugin.
 - **Sreyas-Sreelal**: For the `samp-bcrypt` plugin.
 - **Y_Less**: For the `sscanf` plugin.
 - **Incognito**: For the `streamer` plugin.
 - **Zeex**: For the `zcmd` command processor.
-- Edgy for correcting const usage.
+- **Edgy**: For correcting const usage.
 
 ---
 
