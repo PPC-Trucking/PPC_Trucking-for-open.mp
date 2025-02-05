@@ -135,7 +135,7 @@ Player_PortOutAdminZone(playerid, Float:x1, Float:y1, Float:z1, Float:x2, Float:
 }
 
 // This function sends the given text to all admins
-SendAdminText(playerid, const command[], const text[])
+SendAdminText(playerid, const command[], text[])
 {
 	// Setup local variables
 	new Name[24], Msg[128];
@@ -677,7 +677,7 @@ stock IsPlayerInsideABuilding(playerid)
 }
 
 // Make numbers human readable
-stock FormatNumber(iNum, const szChar[] = ",")
+stock FormatNumber(iNum, szChar[] = ",")
 {
 	new szStr[16], bool:negative = false;
 

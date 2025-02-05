@@ -1,6 +1,6 @@
 // This command can be used to send messages like
 // "/me is now afk" which becomes "* Player is now afk"
-COMMAND:me(playerid, const params[])
+COMMAND:me(playerid, params[])
 {
 	// Setup local variables
 	// 144 i/o message size limit - 24 name - 19 extra characters (see format) = 101
@@ -33,7 +33,7 @@ COMMAND:me(playerid, const params[])
 
 
 // This command allows players to send each other a private message
-COMMAND:pm(playerid, const params[])
+COMMAND:pm(playerid, params[])
 {
 	// Setup local variables
 	// 144 i/o message size limit - 24 name - 18 extra characters + id (see format) = 102
@@ -88,7 +88,7 @@ COMMAND:pm(playerid, const params[])
 
 
 // Lets the player add new houses
-COMMAND:createhouse(playerid, const params[])
+COMMAND:createhouse(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], Price, MaxLevel, HouseID;
@@ -160,7 +160,7 @@ COMMAND:createhouse(playerid, const params[])
 
 
 // This command lets the player delete a house
-COMMAND:delhouse(playerid, const params[])
+COMMAND:delhouse(playerid, params[])
 {
 	// Setup local variables
 	new HouseID, file[100], Message[128];
@@ -236,7 +236,7 @@ COMMAND:delhouse(playerid, const params[])
 
 // This command lets the player buy a house when he is standing in
 // range of a house that is not owned yet
-COMMAND:buyhouse(playerid, const params[])
+COMMAND:buyhouse(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/buyhouse", params);
@@ -282,7 +282,7 @@ COMMAND:buyhouse(playerid, const params[])
 
 
 // This command lets the player enter a property (house / business)
-COMMAND:enter(playerid, const params[])
+COMMAND:enter(playerid, params[])
 {
 	// Setup local variables
 	new Level, BusType;
@@ -380,7 +380,7 @@ COMMAND:enter(playerid, const params[])
 
 
 // This command lets the player exit from a property (house / business)
-COMMAND:exit(playerid, const params[])
+COMMAND:exit(playerid, params[])
 {
 	// Setup local variables
 	new HouseID, BusID;
@@ -417,7 +417,7 @@ COMMAND:exit(playerid, const params[])
 
 
 // This command opens a menu when you're inside your house to allow to access the options of your house
-COMMAND:housemenu(playerid, const params[])
+COMMAND:housemenu(playerid, params[])
 {
 	// Setup local variables
 	new OptionsList[200], DialogTitle[200];
@@ -457,7 +457,7 @@ COMMAND:housemenu(playerid, const params[])
 
 
 // This command allows a player to port a vehicle from his house to his location
-COMMAND:getvehicle(playerid, const params[])
+COMMAND:getvehicle(playerid, params[])
 {
 	// Setup local variables
 	new HouseList[1000], EmptySlot;
@@ -501,7 +501,7 @@ COMMAND:getvehicle(playerid, const params[])
 
 
 // This command allowes a player to park his vehicle near his house
-COMMAND:park(playerid, const params[])
+COMMAND:park(playerid, params[])
 {
 	// Setup local variables
 	new Float:x, Float:y, Float:z, Float:rot, vid, HouseID, Message[128];
@@ -585,7 +585,7 @@ COMMAND:park(playerid, const params[])
 
 
 // Lets the player rent a vehicle
-COMMAND:rentvehicle(playerid, const params[])
+COMMAND:rentvehicle(playerid, params[])
 {
 	// Setup local variables
 	new VehicleClassList[1000];
@@ -642,7 +642,7 @@ COMMAND:rentvehicle(playerid, const params[])
 
 
 // This command teleports a player to his selected house
-COMMAND:gohome(playerid, const params[])
+COMMAND:gohome(playerid, params[])
 {
 	// Setup local variables
 	new HouseList[1000], EmptySlot;
@@ -690,7 +690,7 @@ COMMAND:gohome(playerid, const params[])
 
 
 // Detaches the trailer from the vehicle
-COMMAND:detach(playerid, const params[])
+COMMAND:detach(playerid, params[])
 {
 	// Setup local variables
 	new vid;
@@ -726,7 +726,7 @@ COMMAND:detach(playerid, const params[])
 
 
 // Puts the player's vehicle back onto his wheels
-COMMAND:flip(playerid, const params[])
+COMMAND:flip(playerid, params[])
 {
 	// Setup local variables
 	new Float:x = 0.0, Float:y = 0.0, Float:z = 0.0, vid;
@@ -767,7 +767,7 @@ COMMAND:flip(playerid, const params[])
 
 
 // Repairs the player's vehicle
-COMMAND:repair(playerid, const params[])
+COMMAND:repair(playerid, params[])
 {
 	// Setup local variables
 	new vid;
@@ -803,7 +803,7 @@ COMMAND:repair(playerid, const params[])
 
 
 // Repairs all vehicles
-COMMAND:repairall(playerid, const params[])
+COMMAND:repairall(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], AdminName[MAX_PLAYER_NAME];
@@ -835,7 +835,7 @@ COMMAND:repairall(playerid, const params[])
 
 
 // Heals all players
-COMMAND:healall(playerid, const params[])
+COMMAND:healall(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], AdminName[MAX_PLAYER_NAME];
@@ -867,7 +867,7 @@ COMMAND:healall(playerid, const params[])
 
 
 // Lets the player choose another class
-COMMAND:reclass(playerid, const params[])
+COMMAND:reclass(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/reclass", params);
@@ -897,7 +897,7 @@ COMMAND:reclass(playerid, const params[])
 
 
 // Starts a job
-COMMAND:work(playerid, const params[])
+COMMAND:work(playerid, params[])
 {
 	// Setup local variables
 	new vModel = GetVehicleModel(GetPlayerVehicleID(playerid));
@@ -1043,7 +1043,7 @@ COMMAND:work(playerid, const params[])
 
 
 // Stops the current job
-COMMAND:stopwork(playerid, const params[])
+COMMAND:stopwork(playerid, params[])
 {
 	// Setup local variables
 	new Message[128];
@@ -1089,7 +1089,7 @@ COMMAND:stopwork(playerid, const params[])
 
 
 // Displays the player's coordinates on the map
-COMMAND:loc(playerid, const params[])
+COMMAND:loc(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/loc", params);
@@ -1124,7 +1124,7 @@ COMMAND:loc(playerid, const params[])
 
 
 // Lets the player choose where he wants to respawn (costs $200)
-COMMAND:gobase(playerid, const params[])
+COMMAND:gobase(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/gobase", params);
@@ -1170,7 +1170,7 @@ COMMAND:gobase(playerid, const params[])
 
 
 // Sets the player's wanted level
-COMMAND:setwanted(playerid, const params[])
+COMMAND:setwanted(playerid, params[])
 {
 	new OtherPlayer, Stars, Message[128];
 
@@ -1204,7 +1204,7 @@ COMMAND:setwanted(playerid, const params[])
 
 
 // Lets the player choose a motorcycle to spawn
-COMMAND:bike(playerid, const params[])
+COMMAND:bike(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/bike", params);
@@ -1227,7 +1227,7 @@ COMMAND:bike(playerid, const params[])
 
 
 // Lets the player choose a car to spawn (in a split list which shows only 10 cars at a time)
-COMMAND:car(playerid, const params[])
+COMMAND:car(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/car", params);
@@ -1249,7 +1249,7 @@ COMMAND:car(playerid, const params[])
 
 
 // Lets the player choose a plane to spawn (in a split list which shows only 10 planes at a time)
-COMMAND:plane(playerid, const params[])
+COMMAND:plane(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/plane", params);
@@ -1271,7 +1271,7 @@ COMMAND:plane(playerid, const params[])
 
 
 // Lets the player choose a trailer to spawn (in a split list which shows only 10 trailers at a time)
-COMMAND:trailer(playerid, const params[])
+COMMAND:trailer(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/trailer", params);
@@ -1293,7 +1293,7 @@ COMMAND:trailer(playerid, const params[])
 
 
 // Lets the player choose a boat to spawn
-COMMAND:boat(playerid, const params[])
+COMMAND:boat(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/boat", params);
@@ -1315,7 +1315,7 @@ COMMAND:boat(playerid, const params[])
 
 
 // Jail a player
-COMMAND:jail(playerid, const params[])
+COMMAND:jail(playerid, params[])
 {
 	new PlayerToJail, Seconds, Reason[MAX_STRING_INPUT_TEXT], Message[128], Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME];
 
@@ -1367,7 +1367,7 @@ COMMAND:jail(playerid, const params[])
 
 
 // Unjail a player
-COMMAND:unjail(playerid, const params[])
+COMMAND:unjail(playerid, params[])
 {
 	new PlayerToUnjail, Message[128], Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME];
 
@@ -1414,7 +1414,7 @@ COMMAND:unjail(playerid, const params[])
 
 
 // Warn a player
-COMMAND:warn(playerid, const params[])
+COMMAND:warn(playerid, params[])
 {
 	new PlayerToWarn, Reason[MAX_STRING_INPUT_TEXT], Message[128], Name[MAX_PLAYER_NAME];
 
@@ -1472,7 +1472,7 @@ COMMAND:warn(playerid, const params[])
 
 
 // Kicks a player with a reason
-COMMAND:kick(playerid, const params[])
+COMMAND:kick(playerid, params[])
 {
 	new PlayerToKick, Reason[MAX_STRING_INPUT_TEXT], Message[128], Name[MAX_PLAYER_NAME];
 
@@ -1516,7 +1516,7 @@ COMMAND:kick(playerid, const params[])
 
 
 // Bans a player for x days
-COMMAND:ban(playerid, const params[])
+COMMAND:ban(playerid, params[])
 {
 	// Setup local variables
 	new PlayerToBan, Days, Reason[MAX_STRING_INPUT_TEXT], TotalBanTime, Message[128], Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME];
@@ -1586,7 +1586,7 @@ COMMAND:ban(playerid, const params[])
 
 
 // Unbans a player (cleares the ban-time)
-COMMAND:unban(playerid, const params[])
+COMMAND:unban(playerid, params[])
 {
 	// Setup local variables
 	new PlayerToUnban[MAX_PLAYER_NAME], Message[128], Name[MAX_PLAYER_NAME];
@@ -1634,7 +1634,7 @@ COMMAND:unban(playerid, const params[])
 
 
 // Spawns the object at the location given by the player
-COMMAND:createobject(playerid, const params[])
+COMMAND:createobject(playerid, params[])
 {
 	// Setup local variables
 	new ObjectModel, ObjID, Message[128], Float:x, Float:y, Float:z, Float:Angle;
@@ -1666,7 +1666,7 @@ COMMAND:createobject(playerid, const params[])
 
 
 // Deletes the given object from the game
-COMMAND:delobject(playerid, const params[])
+COMMAND:delobject(playerid, params[])
 {
 	// Setup local variables
 	new oID, Message[128];
@@ -1702,7 +1702,7 @@ COMMAND:delobject(playerid, const params[])
 
 
 // Spawns the pickup at the location given by the player
-COMMAND:createpickup(playerid, const params[])
+COMMAND:createpickup(playerid, params[])
 {
 	// Setup local variables
 	new PickupModel, PickID, Message[128], Float:x, Float:y, Float:z, PickupType;
@@ -1734,7 +1734,7 @@ COMMAND:createpickup(playerid, const params[])
 
 
 // Deletes the given pickup from the game
-COMMAND:delpickup(playerid, const params[])
+COMMAND:delpickup(playerid, params[])
 {
 	// Setup local variables
 	new pID, Message[128];
@@ -1770,7 +1770,7 @@ COMMAND:delpickup(playerid, const params[])
 
 
 // Ports the player to the given coordinates
-COMMAND:portloc(playerid, const params[])
+COMMAND:portloc(playerid, params[])
 {
 	// Setup local variables
 	new Float:x, Float:y, Float:z, Message[128];
@@ -1806,7 +1806,7 @@ COMMAND:portloc(playerid, const params[])
 
 
 // Ports the player to the given player
-COMMAND:port(playerid, const params[])
+COMMAND:port(playerid, params[])
 {
 	// Setup local variables
 	new OtherPlayer, Name[MAX_PLAYER_NAME], Float:x, Float:y, Float:z, Message[128], IntID, WorldID;
@@ -1857,7 +1857,7 @@ COMMAND:port(playerid, const params[])
 
 
 // Ports one player to another player
-COMMAND:tele(playerid, const params[])
+COMMAND:tele(playerid, params[])
 {
 	// Setup local variables
 	new Player, OtherPlayer, Float:x, Float:y, Float:z, Message[128], IntID, WorldID, NamePlayer[MAX_PLAYER_NAME], OtherPlayerName[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME];
@@ -1939,7 +1939,7 @@ COMMAND:tele(playerid, const params[])
 
 
 // Ports the player to the given vehicle
-COMMAND:portvehicle(playerid, const params[])
+COMMAND:portvehicle(playerid, params[])
 {
 	// Setup local variables
 	new Vehicle, Float:x, Float:y, Float:z, Message[128];
@@ -1983,7 +1983,7 @@ COMMAND:portvehicle(playerid, const params[])
 
 
 // Sets the admin-level of another player
-COMMAND:setlevel(playerid, const params[])
+COMMAND:setlevel(playerid, params[])
 {
 	// Setup local variables
 	new OtherPlayer, Level, Message[128], Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME], OldLevel;
@@ -2044,7 +2044,7 @@ COMMAND:setlevel(playerid, const params[])
 
 
 // Refuel the player's vehicle
-COMMAND:fuel(playerid, const params[])
+COMMAND:fuel(playerid, params[])
 {
 	// Setup local variables
 	new vID;
@@ -2080,7 +2080,7 @@ COMMAND:fuel(playerid, const params[])
 
 
 // Let the player use a jetpack
-COMMAND:jetpack(playerid, const params[])
+COMMAND:jetpack(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/jetpack", params);
@@ -2099,7 +2099,7 @@ COMMAND:jetpack(playerid, const params[])
 
 
 // Paints a car with a paintjob
-COMMAND:paint(playerid, const params[])
+COMMAND:paint(playerid, params[])
 {
 	// Setup local variables
 	new PaintjobID, vid, Message[128], Name[MAX_PLAYER_NAME];
@@ -2161,7 +2161,7 @@ COMMAND:paint(playerid, const params[])
 
 
 // Re-colors the given vehicle (lets you choose the first color)
-COMMAND:color1(playerid, const params[])
+COMMAND:color1(playerid, params[])
 {
 	// Setup local variables
 	new ColorList[1000], Name[MAX_PLAYER_NAME], vid;
@@ -2201,7 +2201,7 @@ COMMAND:color1(playerid, const params[])
 
 
 // Re-colors the given vehicle (lets you choose the second color)
-COMMAND:color2(playerid, const params[])
+COMMAND:color2(playerid, params[])
 {
 	// Setup local variables
 	new ColorList[1000], Name[MAX_PLAYER_NAME], vid;
@@ -2241,7 +2241,7 @@ COMMAND:color2(playerid, const params[])
 
 
 // Starts or stops the engine of your vehicle
-COMMAND:engine(playerid, const params[])
+COMMAND:engine(playerid, params[])
 {
 	// Setup local variables
 	new Name[MAX_PLAYER_NAME], vehicleid, engine, lights, alarm, doors, bonnet, boot, objective;
@@ -2283,7 +2283,7 @@ COMMAND:engine(playerid, const params[])
 
 
 // Asks which vehicle parameter you wanna toggle
-COMMAND:caroption(playerid, const params[])
+COMMAND:caroption(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/caroption", params);
@@ -2302,7 +2302,7 @@ COMMAND:caroption(playerid, const params[])
 
 
 // Sets the global weather
-COMMAND:weather(playerid, const params[])
+COMMAND:weather(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/weather", params);
@@ -2321,7 +2321,7 @@ COMMAND:weather(playerid, const params[])
 
 
 // This command lists all online admins
-COMMAND:admins(playerid, const params[])
+COMMAND:admins(playerid, params[])
 {
 	// Setup local variables
 	new AdminList[500], Name[MAX_PLAYER_NAME];
@@ -2369,7 +2369,7 @@ COMMAND:admins(playerid, const params[])
 
 
 // This command lists all commands for normal players (admin-level 0)
-COMMAND:cmds(playerid, const params[])
+COMMAND:cmds(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/cmds", params);
@@ -2383,7 +2383,7 @@ COMMAND:cmds(playerid, const params[])
 
 
 
-COMMAND:convoy(playerid, const params[])
+COMMAND:convoy(playerid, params[])
 {
 	// Setup local variables
 	new ConvoyList[750], Name[MAX_PLAYER_NAME], NumMembers, ConvoyStatus[10];
@@ -2431,7 +2431,7 @@ COMMAND:convoy(playerid, const params[])
 
 
 // Allows the leader to kick a member from the convoy
-COMMAND:convoykick(playerid, const params[])
+COMMAND:convoykick(playerid, params[])
 {
 	// Setup local variables
 	new Convoy, LeaderID, OtherPlayer, LeaderName[MAX_PLAYER_NAME], MemberName[MAX_PLAYER_NAME], Message[128];
@@ -2488,7 +2488,7 @@ COMMAND:convoykick(playerid, const params[])
 
 
 // Allows a convoy-member to leave the convoy
-COMMAND:convoyleave(playerid, const params[])
+COMMAND:convoyleave(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/convoyleave", params);
@@ -2510,7 +2510,7 @@ COMMAND:convoyleave(playerid, const params[])
 }
 
 // Allows the leader to cancel a convoy
-COMMAND:convoycancel(playerid, const params[])
+COMMAND:convoycancel(playerid, params[])
 {
 	// Setup local variables
 	new Convoy, LeaderID;
@@ -2544,7 +2544,7 @@ COMMAND:convoycancel(playerid, const params[])
 }
 
 // Displays all members in the convoy
-COMMAND:convoymembers(playerid, const params[])
+COMMAND:convoymembers(playerid, params[])
 {
 	// Setup local variables
 	new Name[MAX_PLAYER_NAME], MemberList[1000], Convoy;
@@ -2587,7 +2587,7 @@ COMMAND:convoymembers(playerid, const params[])
 }
 
 // Displays the statictics of the player
-COMMAND:stats(playerid, const params[])
+COMMAND:stats(playerid, params[])
 {
 	// Setup local variables
 	new StatsMsg[1000], TitleMsg[128], StatsPlayer;
@@ -2645,7 +2645,7 @@ COMMAND:stats(playerid, const params[])
 }
 
 // This command allows you to create a speedcamera
-COMMAND:createcamera(playerid, const params[])
+COMMAND:createcamera(playerid, params[])
 {
 	// Setup local variables
 	new Float:x, Float:y, Float:z, Float:Angle, MaxSpeed, file[100], File:PFile, LineForFile[100], Message[128];
@@ -2722,7 +2722,7 @@ COMMAND:createcamera(playerid, const params[])
 }
 
 // This command allows you to delete a speedcamera
-COMMAND:delcamera(playerid, const params[])
+COMMAND:delcamera(playerid, params[])
 {
 	// Setup local variables
 	new file[100], Message[128];
@@ -2788,7 +2788,7 @@ COMMAND:delcamera(playerid, const params[])
 
 
 // This command ports a player to the player who executed the command
-COMMAND:get(playerid, const params[])
+COMMAND:get(playerid, params[])
 {
 	// Setup local variables
 	new OtherPlayer, Float:x, Float:y, Float:z, Message[128], IntID, WorldID, Name[MAX_PLAYER_NAME];
@@ -2837,7 +2837,7 @@ COMMAND:get(playerid, const params[])
 }
 
 // This command deleted all vehicles that are spawned using /car, /plane, /bike, /trailer
-COMMAND:cleanupallvehicles(playerid, const params[])
+COMMAND:cleanupallvehicles(playerid, params[])
 {
 	// Setup local variables
 	new CarsDeleted, Message[128];
@@ -2900,7 +2900,7 @@ COMMAND:cleanupallvehicles(playerid, const params[])
 }
 
 // Deletes a specific vehicle that has been spawned by an admin
-COMMAND:cleanupvehicle(playerid, const params[])
+COMMAND:cleanupvehicle(playerid, params[])
 {
     // Setup local variables
 	new vID, Message[128];
@@ -2966,7 +2966,7 @@ COMMAND:cleanupvehicle(playerid, const params[])
 }
 
 // This command allows the player to call for assistance
-COMMAND:assist(playerid, const params[])
+COMMAND:assist(playerid, params[])
 {
 	// Setup local variables
 	new bool:AssistOnline = false, Message[128], Name[MAX_PLAYER_NAME];
@@ -3032,7 +3032,7 @@ COMMAND:assist(playerid, const params[])
 }
 
 // This command adds nitro to the player's vehicle
-COMMAND:nos(playerid, const params[])
+COMMAND:nos(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/nos", params);
@@ -3065,7 +3065,7 @@ COMMAND:nos(playerid, const params[])
 }
 
 // This command let's an admin spectate another player
-COMMAND:spec(playerid, const params[])
+COMMAND:spec(playerid, params[])
 {
 	// Setup local variables
 	new OtherPlayer, Name[MAX_PLAYER_NAME], Message[128], Float:x, Float:y, Float:z, Float:angle;
@@ -3156,7 +3156,7 @@ COMMAND:spec(playerid, const params[])
 }
 
 // This command ends the spectate mode
-COMMAND:endspec(playerid, const params[])
+COMMAND:endspec(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/endspec", params);
@@ -3191,7 +3191,7 @@ COMMAND:endspec(playerid, const params[])
 
 
 // Lets the player add new businesses
-COMMAND:createbusiness(playerid, const params[])
+COMMAND:createbusiness(playerid, params[])
 {
 	// Setup local variables
 	new BusinessList[2000];
@@ -3231,7 +3231,7 @@ COMMAND:createbusiness(playerid, const params[])
 }
 
 // This command lets the player delete a business
-COMMAND:delbusiness(playerid, const params[])
+COMMAND:delbusiness(playerid, params[])
 {
 	// Setup local variables
 	new file[100], Message[128];
@@ -3310,7 +3310,7 @@ COMMAND:delbusiness(playerid, const params[])
 }
 
 // This command lets the player buy a business when he's standing in range of a business that isn't owned yet
-COMMAND:buybus(playerid, const params[])
+COMMAND:buybus(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], BusType;
@@ -3373,7 +3373,7 @@ COMMAND:buybus(playerid, const params[])
 }
 
 // This command opens a menu when you're inside your business to allow to access the options of your business
-COMMAND:busmenu(playerid, const params[])
+COMMAND:busmenu(playerid, params[])
 {
 	// Setup local variables
 	new OptionsList[200], DialogTitle[200];
@@ -3407,7 +3407,7 @@ COMMAND:busmenu(playerid, const params[])
 }
 
 // This command teleports you to your selected business
-COMMAND:gobus(playerid, const params[])
+COMMAND:gobus(playerid, params[])
 {
 	// Setup local variables
 	new BusinessList[1000], BusID, BusType, Earnings;
@@ -3463,7 +3463,7 @@ COMMAND:gobus(playerid, const params[])
 }
 
 // Mutes a player (he cannot talk anymore)
-COMMAND:mute(playerid, const params[])
+COMMAND:mute(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME], Reason[MAX_STRING_INPUT_TEXT], OtherPlayer, TimeToMute;
@@ -3528,7 +3528,7 @@ COMMAND:mute(playerid, const params[])
 }
 
 // Un-mutes a player (he cannot talk anymore)
-COMMAND:unmute(playerid, const params[])
+COMMAND:unmute(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME], OtherPlayer;
@@ -3583,7 +3583,7 @@ COMMAND:unmute(playerid, const params[])
 }
 
 // Let's the admins see which players are still muted
-COMMAND:muted(playerid, const params[])
+COMMAND:muted(playerid, params[])
 {
 	// Setup local variables
 	new PlayerList[1000], Name[MAX_PLAYER_NAME];
@@ -3630,7 +3630,7 @@ COMMAND:muted(playerid, const params[])
 }
 
 // Freeze a player (he cannot move anymore)
-COMMAND:freeze(playerid, const params[])
+COMMAND:freeze(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME], Reason[MAX_STRING_INPUT_TEXT], OtherPlayer, Duration;
@@ -3681,7 +3681,7 @@ COMMAND:freeze(playerid, const params[])
 }
 
 // Unfreeze a player (he can move again)
-COMMAND:unfreeze(playerid, const params[])
+COMMAND:unfreeze(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME], OtherPlayer;
@@ -3735,7 +3735,7 @@ COMMAND:unfreeze(playerid, const params[])
 }
 
 // Transfer money to another player
-COMMAND:givecash(playerid, const params[])
+COMMAND:givecash(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], Name[MAX_PLAYER_NAME], OtherName[MAX_PLAYER_NAME], OtherPlayer, Money;
@@ -3796,7 +3796,7 @@ COMMAND:givecash(playerid, const params[])
 }
 
 // Respawns the given vehicle
-COMMAND:respawnvehicle(playerid, const params[])
+COMMAND:respawnvehicle(playerid, params[])
 {
 	// Setup local variables
 	new vid, Message[128];
@@ -3841,7 +3841,7 @@ COMMAND:respawnvehicle(playerid, const params[])
 }
 
 // Creates a spikestrip (can only be used by police players)
-COMMAND:createspike(playerid, const params[])
+COMMAND:createspike(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/createspike", params);
@@ -3872,7 +3872,7 @@ COMMAND:createspike(playerid, const params[])
 }
 
 // This command ejects a player from his vehicle
-COMMAND:eject(playerid, const params[])
+COMMAND:eject(playerid, params[])
 {
 	// Setup local variables
 	new DriverName[MAX_PLAYER_NAME], Message[128], OtherPlayer, OtherPlayerName[MAX_PLAYER_NAME];
@@ -3929,7 +3929,7 @@ COMMAND:eject(playerid, const params[])
 }
 
 // This command lets you talk only to players of the same class
-COMMAND:radio(playerid, const params[])
+COMMAND:radio(playerid, params[])
 {
 	// Setup local variables
 	new Name[MAX_PLAYER_NAME], RadioMessage[128], Message[128], ClassName[24];
@@ -3991,7 +3991,7 @@ COMMAND:radio(playerid, const params[])
 }
 
 // This command lets you talk only to admin players
-COMMAND:achat(playerid, const params[])
+COMMAND:achat(playerid, params[])
 {
 	// Setup local variables
 	new Name[MAX_PLAYER_NAME], AdminMessage[MAX_STRING_INPUT_TEXT], Message[128];
@@ -4038,7 +4038,7 @@ COMMAND:achat(playerid, const params[])
 }
 
 // Clamp an owned vehicle (remove it completely)
-COMMAND:clamp(playerid, const params[])
+COMMAND:clamp(playerid, params[])
 {
 	// Setup local variables
 	new vid, Reason[MAX_STRING_INPUT_TEXT], HouseID, HouseOwner, Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME], Message[128];
@@ -4128,7 +4128,7 @@ COMMAND:clamp(playerid, const params[])
 }
 
 // This command can be used to unclamp all your vehicles at once
-COMMAND:unclamp(playerid, const params[])
+COMMAND:unclamp(playerid, params[])
 {
 	// Setup local variables
 	new HouseID, vid, ClampedVehicles, UnclampPrice, Message[128];
@@ -4187,7 +4187,7 @@ COMMAND:unclamp(playerid, const params[])
 }
 
 // This command displays the rules of the server
-COMMAND:rules(playerid, const params[])
+COMMAND:rules(playerid, params[])
 {
 	// Setup local variables
 	new Message[2000];
@@ -4216,7 +4216,7 @@ COMMAND:rules(playerid, const params[])
 }
 
 // Report a player for breaking the rules
-COMMAND:report(playerid, const params[])
+COMMAND:report(playerid, params[])
 {
 	// Setup local variables
 	new OtherPlayer, Name[MAX_PLAYER_NAME], Reason[MAX_STRING_INPUT_TEXT], Message[128];
@@ -4258,7 +4258,7 @@ COMMAND:report(playerid, const params[])
 
 
 // Lets the admins see the list of reports
-COMMAND:reports(playerid, const params[])
+COMMAND:reports(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/reports", params);
@@ -4299,7 +4299,7 @@ COMMAND:reports(playerid, const params[])
 }
 
 // Enables the trucker to overload himself
-COMMAND:overload(playerid, const params[])
+COMMAND:overload(playerid, params[])
 {
 	// Setup local variables
 	new vModel, bool:ValidOverLoad = false, Float:x, Float:y, Float:z, Name[MAX_PLAYER_NAME], Message[128];
@@ -4386,7 +4386,7 @@ COMMAND:overload(playerid, const params[])
 }
 
 // This command resets a player's money, score and stats to 0 (if chosen)
-COMMAND:resetplayer(playerid, const params[])
+COMMAND:resetplayer(playerid, params[])
 {
 	// Setup local variables
 	new Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME], Reason[MAX_STRING_INPUT_TEXT], Message[128], OtherPlayer, ClearMoney, ClearScore, ClearStats;
@@ -4477,7 +4477,7 @@ COMMAND:resetplayer(playerid, const params[])
 }
 
 // This command searches every house and business that the player owns and restores the data for it in the player's account
-COMMAND:fixplayer(playerid, const params[])
+COMMAND:fixplayer(playerid, params[])
 {
 	// Setup local variables
 	new Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME], Message[128], OtherPlayer;
@@ -4556,7 +4556,7 @@ COMMAND:fixplayer(playerid, const params[])
 }
 
 // This command sets a skin for a player
-COMMAND:setskin(playerid, const params[])
+COMMAND:setskin(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], AdminName[MAX_PLAYER_NAME], OtherName[MAX_PLAYER_NAME], OtherPlayer, Skin;
@@ -4612,7 +4612,7 @@ COMMAND:setskin(playerid, const params[])
 }
 
 // Bans a player by his ip
-COMMAND:ipban(playerid, const params[])
+COMMAND:ipban(playerid, params[])
 {
 	// Setup local variables
 	new PlayerToBan, Reason[MAX_STRING_INPUT_TEXT], Message[128], Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME];
@@ -4663,7 +4663,7 @@ COMMAND:ipban(playerid, const params[])
 }
 
 // Bans a player's entire range of IP addresses (the last part of the IP-address will be from 0 to 255)
-COMMAND:rangeban(playerid, const params[])
+COMMAND:rangeban(playerid, params[])
 {
 	// Setup local variables
 	new PlayerToBan, PlayerIP[16], FirstPartsOfIP[16], BanCmd[24], Reason[MAX_STRING_INPUT_TEXT], Message[128], Name[MAX_PLAYER_NAME], AdminName[MAX_PLAYER_NAME];
@@ -4725,7 +4725,7 @@ COMMAND:rangeban(playerid, const params[])
 }
 
 // Sets the score of another player
-COMMAND:setscore(playerid, const params[])
+COMMAND:setscore(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], Name[MAX_PLAYER_NAME], OtherName[MAX_PLAYER_NAME], OtherPlayer, pScore;
@@ -4775,7 +4775,7 @@ COMMAND:setscore(playerid, const params[])
 }
 
 // Sets the money of another player
-COMMAND:setcash(playerid, const params[])
+COMMAND:setcash(playerid, params[])
 {
 	// Setup local variables
 	new Message[128], Name[MAX_PLAYER_NAME], OtherName[MAX_PLAYER_NAME], OtherPlayer, pMoney;
@@ -4825,7 +4825,7 @@ COMMAND:setcash(playerid, const params[])
 }
 
 // Allows the player to setup a bank account, login to his bank account, or use his bank account after he logged in to his bank account
-COMMAND:bank(playerid, const params[])
+COMMAND:bank(playerid, params[])
 {
 	// Setup local variables
 	new file[100], Name[MAX_PLAYER_NAME];
@@ -4870,7 +4870,7 @@ COMMAND:bank(playerid, const params[])
 }
 
 // This command lists all help-items for which the player can get information about it
-COMMAND:help(playerid, const params[])
+COMMAND:help(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/help", params);
@@ -4889,7 +4889,7 @@ COMMAND:help(playerid, const params[])
 }
 
 // This command allows you to change your password for logging in
-COMMAND:changepassword(playerid, const params[])
+COMMAND:changepassword(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/changepassword", params);
@@ -4908,7 +4908,7 @@ COMMAND:changepassword(playerid, const params[])
 }
 
 // This command opens a menu where you can choose neons lights for your vehicle
-COMMAND:neon(playerid, const params[])
+COMMAND:neon(playerid, params[])
 {
 	// Setup local variables
 	new OptionsList[200], DialogTitle[200];
@@ -4946,7 +4946,7 @@ COMMAND:neon(playerid, const params[])
 }
 
 // This command shows the current bonus mission
-COMMAND:bonus(playerid, const params[])
+COMMAND:bonus(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/bonus", params);
@@ -4968,7 +4968,7 @@ COMMAND:bonus(playerid, const params[])
 }
 
 // This command gives a truckers license to a player
-COMMAND:givelicense(playerid, const params[])
+COMMAND:givelicense(playerid, params[])
 {
 	// Setup local variables
 	new OtherPlayer, Message[128], Name[MAX_PLAYER_NAME], OtherName[MAX_PLAYER_NAME];
@@ -5023,7 +5023,7 @@ COMMAND:givelicense(playerid, const params[])
 }
 
 // This command lets admins make an announcement
-COMMAND:announce(playerid, const params[])
+COMMAND:announce(playerid, params[])
 {
 	// Setup local variabiles
 	new Message[128], Style, DisplayTime, Text[64];
@@ -5065,7 +5065,7 @@ COMMAND:announce(playerid, const params[])
 }
 
 // Let admins to refuel all player vehicles
-COMMAND:fuelall(playerid, const params[])
+COMMAND:fuelall(playerid, params[])
 {
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/fuelall", params);
