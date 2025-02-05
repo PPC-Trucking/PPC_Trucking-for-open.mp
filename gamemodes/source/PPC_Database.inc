@@ -109,7 +109,7 @@ public OnPlayerHashPassword(playerid)
     return 1;
 }
 
-RegisterAccountForPlayer(playerid, const hash [])
+RegisterAccountForPlayer(playerid, hash[])
 {
     new query[256];
     mysql_format(Database, query, sizeof (query), "INSERT INTO `players` (`PlayerName`, `PlayerPassword`) VALUES ('%e', '%s')", APlayerData[playerid][PlayerName], hash);
