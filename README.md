@@ -1,9 +1,9 @@
 <div align="center">
   <img src="images/ppctrucking.png" alt="PPC_Trucking" width="650">
 
-# 🛻🚛 PPC_Trucking (open.mp version) 🚌🚗
+# 🛻🚛 PPC_Trucking🚌🚗 
+(open.mp version)
 </div>
-
 
 This is a modified version of the popular **PPC Trucking** gamemode, originally created by **PowerPC603** for **San Andreas Multiplayer (SA:MP)**.
 This version has been updated to work with **open.mp**, the modern, open-source multiplayer mod for Grand Theft Auto: San Andreas.
@@ -103,6 +103,7 @@ It includes **MySQL integration** for player data storage and **bcrypt** for sec
 - **Y_Less**: For the `sscanf` plugin.
 - **Incognito**: For the `streamer` plugin.
 - **Zeex**: For the `zcmd` command processor.
+- Edgy for correcting const usage.
 
 ---
 
