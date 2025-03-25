@@ -719,137 +719,139 @@ BusinessFile_Save(BusID)
 // This function will load the player's bank account and process transfers that were made to his account when he was offline
 BankFile_Load(playerid)
 {
-	// Setup local variables
-	new file[100], File:BFile, Name[24], LineFromFile[100], ParameterName[50], ParameterValue[50];
-	new TransferMoney, TransferName[24], TransferTime[24], Msg[128];
-	new InterestAmount, OldBankMoney, NewBankMoney;
-
-	format(Name, sizeof(Name), APlayerData[playerid][PlayerName]); // Get the playername
-	format(file, sizeof(file), BankFile, Name); // Construct the complete filename for this player's bank-account
-
-	if (fexist(file))
-	{
-		// Send a message to the player to inform him that he has a bank account
-	    SendClientMessage(playerid, COLOR_DODGERBLUE, "You have a bank-account. Use {FFBB00}/bank{00BBFF} to login");
-
-		BFile = fopen(file, io_read); // Open the bankfile for reading
-
-		fread(BFile, LineFromFile); // Read the first line of the file
-
-		// Keep reading until the end of the file is found (no more data)
-		while (strlen(LineFromFile) > 0)
-		{
-			StripNewLine(LineFromFile); // Strip any newline characters from the LineFromFile
-			sscanf(LineFromFile, "s[50]s[50]", ParameterName, ParameterValue); // Extract parametername and parametervalue
-
-			// Store the proper value in the proper place
-			if (strcmp(ParameterName, "Password", false) == 0) // If the parametername is correct ("Password")
-			    format(APlayerData[playerid][BankPassword], 24, ParameterValue); // Store the Password
-			if (strcmp(ParameterName, "Money", false) == 0) // If the parametername is correct ("Money")
-				APlayerData[playerid][BankMoney] = strval(ParameterValue); // Store the Money
-			if (strcmp(ParameterName, "LastInterestTime", false) == 0) // If the parametername is correct ("LastInterestTime")
-				APlayerData[playerid][LastInterestTime] = strval(ParameterValue); // Store the LastInterestTime
-
-			// Process transfer-data
-			if (strcmp(ParameterName, "[Transfer]", false) == 0) // If the parametername is correct ("[Transfer]")
-			{
-				TransferMoney = 0; // Clear the money variable
-			    for (new i; i < sizeof(TransferName); i++) // Clear the name variable
-			        TransferName[i] = 0;
-			    for (new i; i < sizeof(TransferTime); i++) // Clear the time variable
-			        TransferTime[i] = 0;
-			}
-			if (strcmp(ParameterName, "TransferMoney", false) == 0) // If the parametername is correct ("TransferMoney")
-				TransferMoney = strval(ParameterValue); // Store the TransferMoney
-			if (strcmp(ParameterName, "TransferName", false) == 0) // If the parametername is correct ("TransferName")
-			    format(TransferName, sizeof(TransferName), ParameterValue); // Store the TransferName
-			if (strcmp(ParameterName, "TransferTime", false) == 0) // If the parametername is correct ("TransferTime")
-			    format(TransferTime, sizeof(TransferTime), ParameterValue); // Store the TransferTime
-			if (strcmp(ParameterName, "[/Transfer]", false) == 0) // If the parametername is correct ("[/Transfer]")
-			{
-				// Add the money to your bank-account that was transferred by another player
-				APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] + TransferMoney;
-				// Inform the player that a player has transferred some money to your bank account
-				format(Msg, sizeof(Msg), "{00BBFF}Player {FFBB00}%s{00BBFF} has transferred {FFBB00}$%i{00BBFF}", TransferName, TransferMoney);
-				SendClientMessage(playerid, COLOR_WHITE, Msg);
-				format(Msg, sizeof(Msg), "{00BBFF}to your bank account on {FFBB00}%s", TransferTime);
-				SendClientMessage(playerid, COLOR_WHITE, Msg);
-			}
-
-            // Read the next line of the file
-			fread(BFile, LineFromFile);
-		}
-
-        // Close the file
-		fclose(BFile);
-
-		// Process interest if interest is enabled for the time the player was offline
-		if (InterestEnabled == true)
-		{
-		    // Check if the player has any money in his bank account (adding interest to $0 is useless)
-			if (APlayerData[playerid][BankMoney] > 0)
-			{
-				// Also process interest for this bank account for every hour the player was offline
-				if (APlayerData[playerid][LastInterestTime] < CurrentInterestTime)
-				{
-				    // Get the old amount of money
-				    OldBankMoney = APlayerData[playerid][BankMoney];
-					// Count the hours the player was offline and didn't receive interest yet
-					for (new i; i < (CurrentInterestTime - APlayerData[playerid][LastInterestTime]); i++)
-					{
-						// Calculate the interest
-						InterestAmount = floatround(floatmul(APlayerData[playerid][BankMoney], BankInterest), floatround_floor);
-						// Add the interest to this player's bank account
-						APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] + InterestAmount;
-					}
-				    // Get the new amount of money
-				    NewBankMoney = APlayerData[playerid][BankMoney];
-					// Save the CurrentInterestTime for this bank account
-					APlayerData[playerid][LastInterestTime] = CurrentInterestTime;
-
-					// Inform the player that he received interest on his bank account and how much
-					format(Msg, sizeof(Msg), "{00BBFF}You've received {FFBB00}$%i{00BBFF} interest on your bank account", NewBankMoney - OldBankMoney);
-					SendClientMessage(playerid, COLOR_WHITE, Msg);
-				}
-			}
-		}
-
-		// Re-save the bank account (in case interest and transfers have been processed)
-		BankFile_Save(playerid);
-
-        // Return if the file was read correctly
-		return 1;
-	}
-	else
-	{
-		// Send a message if the player doesn't have a bank account
-	    SendClientMessage(playerid, COLOR_DODGERBLUE, "You don't have a bank-account. Use {FFBB00}/bank{00BBFF} to set it up");
-
-	    return 0; // Return 0 if the file couldn't be read (doesn't exist)
-	}
+    new Name[24], query[256], Message[128], OldBankMoney, NewBankMoney, InterestAmount;
+    
+    GetPlayerName(playerid, Name, sizeof(Name));
+    
+    // Check if the player has a bank account
+    mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", Name);
+    new Cache:result = mysql_query(Database, query);
+    
+    // Check if player has a bank account
+    if (cache_num_rows() > 0) {
+        // Send a message to the player to inform him that he has a bank account
+        SendClientMessage(playerid, COLOR_DODGERBLUE, "You have a bank-account. Use {FFBB00}/bank{00BBFF} to login");
+        
+        // Get the player's bank data
+        cache_get_value_name(0, "BankPassword", APlayerData[playerid][BankPassword], 24);
+        cache_get_value_name_int(0, "BankMoney", APlayerData[playerid][BankMoney]);
+        cache_get_value_name_int(0, "LastInterestTime", APlayerData[playerid][LastInterestTime]);
+        
+        // Process interest if interest is enabled for the time the player was offline
+        if (InterestEnabled == true)
+        {
+            // Check if the player has any money in his bank account (adding interest to $0 is useless)
+            if (APlayerData[playerid][BankMoney] > 0)
+            {
+                // Also process interest for this bank account for every hour the player was offline
+                if (APlayerData[playerid][LastInterestTime] < CurrentInterestTime)
+                {
+                    // Get the old amount of money
+                    OldBankMoney = APlayerData[playerid][BankMoney];
+                    // Count the hours the player was offline and didn't receive interest yet
+                    for (new i; i < (CurrentInterestTime - APlayerData[playerid][LastInterestTime]); i++)
+                    {
+                        // Calculate the interest
+                        InterestAmount = floatround(floatmul(APlayerData[playerid][BankMoney], BankInterest), floatround_floor);
+                        // Add the interest to this player's bank account
+                        APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] + InterestAmount;
+                    }
+                    // Get the new amount of money
+                    NewBankMoney = APlayerData[playerid][BankMoney];
+                    // Save the CurrentInterestTime for this bank account
+                    APlayerData[playerid][LastInterestTime] = CurrentInterestTime;
+                    
+                    // Inform the player that he received interest on his bank account and how much
+                    format(Message, sizeof(Message), "{00BBFF}You've received {FFBB00}$%i{00BBFF} interest on your bank account", NewBankMoney - OldBankMoney);
+                    SendClientMessage(playerid, COLOR_WHITE, Message);
+                    
+                    // Update the bank data after interest calculation
+                    BankFile_Save(playerid);
+                }
+            }
+        }
+        
+        // Check for any pending transfers to this player
+        mysql_format(Database, query, sizeof(query), "SELECT * FROM `bank_transfers` WHERE `ReceiverName` = '%e' AND `IsProcessed` = 0", Name);
+        new Cache:transferResult = mysql_query(Database, query);
+        
+        new rows = cache_num_rows();
+        if (rows > 0) {
+            new TransferAmount, SenderName[24], TransferTimeStamp, TransferTime[24], Day, Month, Year, Hour, Minute;
+            
+            for (new i = 0; i < rows; i++) {
+                cache_get_value_name_int(i, "TransferAmount", TransferAmount);
+                cache_get_value_name(i, "SenderName", SenderName, sizeof(SenderName));
+                cache_get_value_name_int(i, "TransferTime", TransferTimeStamp);
+                
+                // Format the transfer time
+                getdate(Year, Month, Day);
+                gettime(Hour, Minute);
+                format(TransferTime, sizeof(TransferTime), "%02d/%02d/%04d %02d:%02d", Day, Month, Year, Hour, Minute);
+                
+                // Add the money to the player's bank account
+                APlayerData[playerid][BankMoney] += TransferAmount;
+                
+                // Inform the player about the transfer
+                format(Message, sizeof(Message), "{00BBFF}Player {FFBB00}%s{00BBFF} has transferred {FFBB00}$%i{00BBFF}", SenderName, TransferAmount);
+                SendClientMessage(playerid, COLOR_WHITE, Message);
+                format(Message, sizeof(Message), "{00BBFF}to your bank account on {FFBB00}%s", TransferTime);
+                SendClientMessage(playerid, COLOR_WHITE, Message);
+            }
+            
+            // Mark all transfers as processed
+            mysql_format(Database, query, sizeof(query), "UPDATE `bank_transfers` SET `IsProcessed` = 1 WHERE `ReceiverName` = '%e' AND `IsProcessed` = 0", Name);
+            mysql_query(Database, query);
+            
+            // Update the bank account with the new money
+            BankFile_Save(playerid);
+        }
+        
+        cache_delete(transferResult);
+        cache_delete(result);
+        return 1;
+    } else {
+        // Send a message if the player doesn't have a bank account
+        SendClientMessage(playerid, COLOR_DODGERBLUE, "You don't have a bank-account. Use {FFBB00}/bank{00BBFF} to set it up");
+        cache_delete(result);
+        return 0;
+    }
 }
 
 // This function will save the player's bank account
 BankFile_Save(playerid)
 {
-	// Setup local variables
-	new file[100], File:BFile, LineForFile[100], Name[24];
-
-	format(Name, sizeof(Name), APlayerData[playerid][PlayerName]); // Get the playername
-	format(file, sizeof(file), BankFile, Name); // Construct the complete filename for this player's bank-account
-
-	BFile = fopen(file, io_write); // Open the business-file for writing
-
-	format(LineForFile, sizeof(LineForFile), "Password %s\r\n", APlayerData[playerid][BankPassword]); // Construct the line: "Password <BankPassword>"
-	fwrite(BFile, LineForFile); // And save it to the file
-	format(LineForFile, sizeof(LineForFile), "Money %i\r\n", APlayerData[playerid][BankMoney]); // Construct the line: "Money <BankMoney>"
-	fwrite(BFile, LineForFile); // And save it to the file
-	format(LineForFile, sizeof(LineForFile), "LastInterestTime %i\r\n", APlayerData[playerid][LastInterestTime]); // Construct the line: "LastInterestTime <LastInterestTime>"
-	fwrite(BFile, LineForFile); // And save it to the file
-
-	fclose(BFile); // Close the file
-
-	return 1;
+    // Setup local variables
+    new Name[24], query[256];
+    
+    GetPlayerName(playerid, Name, sizeof(Name));
+    
+    // Check if the player already has a bank account
+    mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", Name);
+    new Cache:result = mysql_query(Database, query);
+    
+    if (cache_num_rows() > 0) {
+        // Update existing bank account
+        mysql_format(Database, query, sizeof(query), "UPDATE `banks` SET `BankPassword` = '%e', `BankMoney` = %d, `LastInterestTime` = %d WHERE `PlayerName` = '%e'",
+            APlayerData[playerid][BankPassword],
+            APlayerData[playerid][BankMoney],
+            APlayerData[playerid][LastInterestTime],
+            Name
+        );
+    } else {
+        // Create a new bank account
+        mysql_format(Database, query, sizeof(query), "INSERT INTO `banks` (`PlayerName`, `BankPassword`, `BankMoney`, `LastInterestTime`) VALUES ('%e', '%e', %d, %d)",
+            Name,
+            APlayerData[playerid][BankPassword],
+            APlayerData[playerid][BankMoney],
+            APlayerData[playerid][LastInterestTime]
+        );
+    }
+    
+    mysql_query(Database, query);
+    cache_delete(result);
+    
+    return 1;
 }
 
 
@@ -857,52 +859,39 @@ BankFile_Save(playerid)
 // This function loads the file that holds the current interest-time
 InterestTime_Load()
 {
-	// Setup local variables
-	new File:BFile, LineFromFile[100], ParameterName[50], ParameterValue[50];
-
-	// Try to load the businesstime file
-	if (fexist("ServerData/Bank/InterestTime.ini"))
-	{
-		BFile = fopen("ServerData/Bank/InterestTime.ini", io_read); // Open the interest-time-file for reading
-
-		fread(BFile, LineFromFile); // Read the first line of the file
-
-		// Keep reading until the end of the file is found (no more data)
-		while (strlen(LineFromFile) > 0)
-		{
-			StripNewLine(LineFromFile); // Strip any newline characters from the LineFromFile
-			sscanf(LineFromFile, "s[50]s[50]", ParameterName, ParameterValue); // Extract parametername and parametervalue
-
-			// Store the proper value in the proper place
-			if (strcmp(ParameterName, "CurrentInterestTime", false) == 0) // If the parametername is correct ("CurrentInterestTime")
-				CurrentInterestTime = strval(ParameterValue); // Store the CurrentInterestTime
-
-            // Read the next line of the file
-			fread(BFile, LineFromFile);
-		}
-
-        // Close the file
-		fclose(BFile);
-
-        // Return if the file was read correctly
-		return 1;
-	}
-	else
-	    return 0; // Return 0 if the file couldn't be read (doesn't exist)
+    // Setup local variables
+    new query[128];
+    
+    // Query the database for the current interest time
+    mysql_format(Database, query, sizeof(query), "SELECT * FROM `settings` WHERE `setting_name` = 'CurrentInterestTime' LIMIT 1");
+    new Cache:result = mysql_query(Database, query);
+    
+    if (cache_num_rows() > 0)
+    {
+        cache_get_value_name_int(0, "setting_value", CurrentInterestTime);
+        cache_delete(result);
+        return 1;
+    }
+    else
+    {
+        // Create a default entry if not found
+        mysql_format(Database, query, sizeof(query), "INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('CurrentInterestTime', 0)");
+        mysql_query(Database, query);
+        CurrentInterestTime = 0;
+        cache_delete(result);
+        return 0;
+    }
 }
 
 // This function saves the file that holds the current interest-time
 InterestTime_Save()
 {
-	new File:BFile, LineForFile[100];
-
-	BFile = fopen("ServerData/Bank/InterestTime.ini", io_write); // Open the interesttime-file for writing
-
-	format(LineForFile, sizeof(LineForFile), "CurrentInterestTime %i\r\n", CurrentInterestTime); // Construct the line: "CurrentInterestTime <CurrentInterestTime>"
-	fwrite(BFile, LineForFile); // And save it to the file
-
-	fclose(BFile); // Close the file
-
-	return 1;
+    new query[128];
+    
+    // Update the current interest time in the database
+    mysql_format(Database, query, sizeof(query), "UPDATE `settings` SET `setting_value` = %d WHERE `setting_name` = 'CurrentInterestTime'", CurrentInterestTime);
+    mysql_query(Database, query);
+    
+    return 1;
 }
 

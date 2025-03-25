@@ -2389,51 +2389,74 @@ Dialog_StatsGoBusiness(playerid, response, listitem)
 // Process the password to register a bank account
 Dialog_BankPasswordRegister(playerid, response, const inputtext[])
 {
-	// Just close the dialog if the player clicked "Cancel"
-	if(!response) return 1;
-
-	// Check if the player entered a valid password
-	if ((strlen(inputtext) > 0) && (strlen(inputtext) < 20))
-	{
-		// Store the password
-		format(APlayerData[playerid][BankPassword], 24, inputtext);
-		// Save the bank account
-		BankFile_Save(playerid);
-		// Inform the player that he has succesfully registered a bank account
-		SendClientMessage(playerid, COLOR_GREEN, "You've succesfully registered a bank account");
-	}
-	else
+    // Just close the dialog if the player clicked "Cancel"
+    if(!response) return 1;
+    
+    // Check if the player entered a valid password
+    if ((strlen(inputtext) > 0) && (strlen(inputtext) < 20))
+    {
+        // Hash the password for security
+        bcrypt_hash(playerid, "OnBankPasswordHash", inputtext, BCRYPT_COST);
+    }
+    else
 		SendClientMessage(playerid, COLOR_RED, "You need to enter a valid password to register a bank account");
 
 	return 1;
 }
 
+forward OnBankPasswordHash(playerid);
+public OnBankPasswordHash(playerid)
+{
+   new hash[BCRYPT_HASH_LENGTH];
+   bcrypt_get_hash(hash, sizeof(hash));
+   
+   // Store the hashed password
+   format(APlayerData[playerid][BankPassword], BCRYPT_HASH_LENGTH, hash);
+   
+   // Save the bank account
+   BankFile_Save(playerid);
+   
+   // Inform the player that he has successfully registered a bank account
+   SendClientMessage(playerid, COLOR_GREEN, "You've successfully registered a bank account");
+   
+   return 1;
+}
+
 // Process the password to login to your bank account
 Dialog_BankPasswordLogin(playerid, response, const inputtext[])
 {
-	// Just close the dialog if the player clicked "Cancel"
-	if(!response) return 1;
+    // Just close the dialog if the player clicked "Cancel"
+    if(!response) return 1;
 
-	// Check if the player entered a valid password
-	if ((strlen(inputtext) > 0) && (strlen(inputtext) < 20))
-	{
-		// Check if the player entered the correct password to login to his bank account
-	    if (strcmp(APlayerData[playerid][BankPassword], inputtext, false) == 0)
-		{
-			// The player has logged in to his bank account
-	       	APlayerData[playerid][BankLoggedIn] = true;
-			// Inform the player that he has succesfully registered a bank account
-			SendClientMessage(playerid, COLOR_GREEN, "You've succesfully logged in to your bank account");
-			// Show the bank dialog
-			ShowBankMenu(playerid);
-		}
-		else // The player entered the wrong password
-			SendClientMessage(playerid, COLOR_RED, "You've entered the wrong password for logging in to your bank account");
-	}
-	else
-		SendClientMessage(playerid, COLOR_RED, "You need to enter the correct password to login to your bank account");
+    // Check if the player entered a valid password
+    if ((strlen(inputtext) > 0) && (strlen(inputtext) < 20))
+    {
+        // Verify the password against the stored hash
+        bcrypt_verify(playerid, "OnBankPasswordVerify", inputtext, APlayerData[playerid][BankPassword]);
+    }
+    else
+        SendClientMessage(playerid, COLOR_RED, "You need to enter the correct password to login to your bank account");
 
-	return 1;
+    return 1;
+}
+
+// Callback for bank password verification
+forward OnBankPasswordVerify(playerid, bool:success);
+public OnBankPasswordVerify(playerid, bool:success)
+{
+    if(success)
+    {
+        // The player has logged in to his bank account
+        APlayerData[playerid][BankLoggedIn] = true;
+        // Inform the player that he has successfully registered a bank account
+        SendClientMessage(playerid, COLOR_GREEN, "You've successfully logged in to your bank account");
+        // Show the bank dialog
+        ShowBankMenu(playerid);
+    }
+    else // The player entered the wrong password
+        SendClientMessage(playerid, COLOR_RED, "You've entered the wrong password for logging in to your bank account");
+    
+    return 1;
 }
 
 // Process the options in the bank dialog
@@ -2625,41 +2648,41 @@ Dialog_BankTransferMoney(playerid, response, const inputtext[])
 // Process the transfer option (player entered the name of the other player who must receive the money)
 Dialog_BankTransferName(playerid, response, const inputtext[])
 {
-	// Just close the dialog if the player clicked "Cancel"
-	if(!response) return 1;
-
-	// Setup local variables
-	new file[100], File:BFile, LineForFile[100], ReceiverName[24], SenderName[24], Msg[128];
-	new OtherPlayer, Day, Month, Year, Hour, Minute, Second, sDay[3], sMonth[3], sYear[5], sHour[3], sMinute[3];
-
+    // Just close the dialog if the player clicked "Cancel"
+    if(!response) return 1;
+    
+    // Setup local variables
+    new query[300], ReceiverName[24], SenderName[24], Msg[128];
+    new Day, Month, Year, Hour, Minute, Second, TransferTime;
+    
     // Get the playername of the sender (the player who executes the transfer)
-	format(SenderName, sizeof(SenderName), APlayerData[playerid][PlayerName]);
-
-	// Check if there is a text entered
-	if (strlen(inputtext) == 0)
-	{
-		// Let the player know he must enter a playername or playerid into the input field
-	    SendClientMessage(playerid, COLOR_RED, "You need to enter a playername OR id");
-		return 1;
-	}
-
-	// Try to convert the given playername OR playerid to a playerid
-	sscanf(inputtext, "u", OtherPlayer);
-
-	// Check if an online player was found by sscanf
-	if (OtherPlayer != INVALID_PLAYER_ID)
-	{
-		// Check if that other player is online (use online bank-transfer)
-		if (APlayerData[OtherPlayer][LoggedIn] == true)
-		{
-			format(ReceiverName, sizeof(ReceiverName), APlayerData[OtherPlayer][PlayerName]); // Get the playername of the receiver
-			format(file, sizeof(file), BankFile, ReceiverName); // Construct the complete filename for the receiver's bank-account
-
-			// Check if the receiver has a bank account
-			if (fexist(file))
+    format(SenderName, sizeof(SenderName), APlayerData[playerid][PlayerName]);
+    
+    // Check if there is a text entered
+    if (strlen(inputtext) == 0)
+    {
+        // Let the player know he must enter a playername or playerid into the input field
+        SendClientMessage(playerid, COLOR_RED, "You need to enter a playername OR id");
+        return 1;
+    }
+    
+    // Try to convert the given playername OR playerid to a playerid
+    new OtherPlayer;
+    if (sscanf(inputtext, "u", OtherPlayer) == 0 && OtherPlayer != INVALID_PLAYER_ID)
+    {
+        // Check if that other player is online (use online bank-transfer)
+        if (APlayerData[OtherPlayer][LoggedIn] == true)
+        {
+            GetPlayerName(OtherPlayer, ReceiverName, sizeof(ReceiverName));
+            
+            // Check if the receiver has a bank account
+            mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", ReceiverName);
+            new Cache:result = mysql_query(Database, query);
+            
+            if (cache_num_rows() > 0)
 			{
-			    // Transfer the money from your bank account to the other player's bank account
-			    APlayerData[OtherPlayer][BankMoney] = APlayerData[OtherPlayer][BankMoney] + APlayerData[playerid][UseMoney];
+				// Transfer the money from your bank account to the other player's bank account
+				APlayerData[OtherPlayer][BankMoney] = APlayerData[OtherPlayer][BankMoney] + APlayerData[playerid][UseMoney];
 				// Take the money away from your own bank account
 				APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] - APlayerData[playerid][UseMoney];
 				// Save both bank accounts
@@ -2671,122 +2694,100 @@ Dialog_BankTransferName(playerid, response, const inputtext[])
 				// Inform the sender that money was transferred from his bank account to the receiver
 				format(Msg, sizeof(Msg), "{00FF00}You have transferred {FFFF00}$%i{00FF00} to {FFFF00}%s{00FF00}'s bank account", APlayerData[playerid][UseMoney], ReceiverName);
 				SendClientMessage(playerid, COLOR_WHITE, Msg);
+				
+				cache_delete(result);
 				// Exit the function (bank transfer was completed), skipping offline transfer
 				return 1;
 			}
 			else // The target player is online, but has no bank account
 			{
 				format(Msg, sizeof(Msg), "{FF0000}Player {FFFF00}%s{FF0000} is online, but has no bank account, transfer failed", inputtext);
-			    SendClientMessage(playerid, COLOR_WHITE, Msg);
+				SendClientMessage(playerid, COLOR_WHITE, Msg);
+				cache_delete(result);
 				// Exit the function (bank transfer failed as the target player has no bank account), skipping offline transfer
 				return 1;
 			}
-		}
-		else
-		{
-			// An online player was found here, but he hasn't logged in yet, so treat him as an offline player
-			// The rest of the function will be executes to process offline bank transfers
-		}
-	}
-
-	// The player might be offline or doesn't exist (no player account with that name), so try to use an offline bank-transfer
-	// This part of the code is executed because sscanf failed to find an online player with the given name
-	// or the player is connected to the server, but hasn't logged in yet (didn't type his password already), this is treated
-	// as being offline
-
-	// Construct the complete filename for the receiver's bank-account
-	format(file, sizeof(file), BankFile, inputtext);
-
-	// Check if the receiver has a bank account
-	if (fexist(file))
-	{
-	    // Open the file
-		BFile = fopen(file, io_append); // Open the receiver's bank account for appending data to it
-
-		fwrite(BFile, "[Transfer]\r\n");
-		format(LineForFile, sizeof(LineForFile), "TransferMoney %i\r\n", APlayerData[playerid][UseMoney]); // Construct the line: "TransferMoney <TransferMoney>"
-		fwrite(BFile, LineForFile); // And save it to the file
-		format(LineForFile, sizeof(LineForFile), "TransferName %s\r\n", SenderName); // Construct the line: "TransferName <SenderName>"
-		fwrite(BFile, LineForFile); // And save it to the file
-		// Get the current date and time
-		getdate(Year, Month, Day);
-		gettime(Hour, Minute, Second);
-
-		// Make sure the Day is 2 characters long
-		if (Day < 10) format(sDay, sizeof(sDay), "0%i", Day);
-		else format(sDay, sizeof(sDay), "%i", Day);
-		// Make sure the Month is 2 characters long
-		if (Month < 10) format(sMonth, sizeof(sMonth), "0%i", Month);
-		else format(sMonth, sizeof(sMonth), "%i", Month);
-		// Convert the Year into a string
-	    format(sYear, sizeof(sYear), "%i", Year);
-		// Make sure the Hour is 2 characters long
-		if (Hour < 10) format(sHour, sizeof(sHour), "0%i", Hour);
-		else format(sHour, sizeof(sHour), "%i", Hour);
-		// Make sure the Minute is 2 characters long
-		if (Minute < 10) format(sMinute, sizeof(sMinute), "0%i", Minute);
-		else format(sMinute, sizeof(sMinute), "%i", Minute);
-
-		format(LineForFile, sizeof(LineForFile), "TransferTime %s/%s/%s %s:%s\r\n", sDay, sMonth, sYear, sHour, sMinute); // Construct the line: "TransferTime <TransferTime>"
-		fwrite(BFile, LineForFile); // And save it to the file
-		fwrite(BFile, "[/Transfer]\r\n"); // Save the transfer-terminator string to the file
-
-		fclose(BFile); // Close the file
-
-		// Take the money away from your own bank account
-		APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] - APlayerData[playerid][UseMoney];
-		// Save your bank account
-		BankFile_Save(playerid);
-
-		// Inform the sender that the transfer was completed
-		format(Msg, sizeof(Msg), "{00FF00}Player {FFFF00}%s{00FF00} is offline and has a bank account, transfer of {FFFF00}$%i{00FF00} was succesfull", inputtext, APlayerData[playerid][UseMoney]);
-		SendClientMessage(playerid, COLOR_WHITE, Msg);
-	}
-	else
-	{
-		format(Msg, sizeof(Msg), "{FF0000}Account-name {FFFF00}%s{FF0000} not found, transfer failed", inputtext);
-	    SendClientMessage(playerid, COLOR_WHITE, Msg);
-	}
-
-	return 1;
+        }
+    }
+    
+    // The player might be offline or doesn't exist (no player account with that name), so try to use an offline bank-transfer
+    // Check if the receiver has a bank account in the database
+    mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", inputtext);
+    new Cache:result = mysql_query(Database, query);
+    
+    if (cache_num_rows() > 0)
+    {
+        // Get the current date and time for the transfer
+        getdate(Year, Month, Day);
+        gettime(Hour, Minute, Second);
+        TransferTime = gettime(); // Unix timestamp
+        
+        // Create a transfer record
+        mysql_format(Database, query, sizeof(query), "INSERT INTO `bank_transfers` (`SenderName`, `ReceiverName`, `TransferAmount`, `TransferTime`, `IsProcessed`) VALUES ('%e', '%e', %d, %d, 0)",
+            SenderName,
+            inputtext,
+            APlayerData[playerid][UseMoney],
+            TransferTime
+        );
+        mysql_query(Database, query);
+        
+        // Take the money away from your own bank account
+        APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] - APlayerData[playerid][UseMoney];
+        // Save your bank account
+        BankFile_Save(playerid);
+        
+        // Inform the sender that the transfer was completed
+        format(Msg, sizeof(Msg), "{00FF00}Player {FFFF00}%s{00FF00} is offline and has a bank account, transfer of {FFFF00}$%i{00FF00} was successful", inputtext, APlayerData[playerid][UseMoney]);
+        SendClientMessage(playerid, COLOR_WHITE, Msg);
+        
+        cache_delete(result);
+        return 1;
+    }
+    else
+    {
+        format(Msg, sizeof(Msg), "{FF0000}Account-name {FFFF00}%s{FF0000} not found, transfer failed", inputtext);
+        SendClientMessage(playerid, COLOR_WHITE, Msg);
+        cache_delete(result);
+    }
+    
+    return 1;
 }
 
 // Process the Bank Cancel option
 Dialog_BankCancel(playerid, response)
 {
-	// Just close the dialog if the player clicked "No"
-	if(!response) return 1;
+    // Just close the dialog if the player clicked "No"
+    if(!response) return 1;
 
-	// Setup local variables
-	new file[100], Name[24];
+    // Setup local variables
+    new query[256], Name[24];
 
     // Get the playername
-	format(Name, sizeof(Name), APlayerData[playerid][PlayerName]);
-	// Construct the complete filename for this player's bank-account
-	format(file, sizeof(file), BankFile, Name);
+    format(Name, sizeof(Name), APlayerData[playerid][PlayerName]);
+    
+    // Delete the bank account from the database
+    mysql_format(Database, query, sizeof(query), "DELETE FROM `banks` WHERE `PlayerName` = '%e'", Name);
+    mysql_query(Database, query);
 
-	// Check if the player's ban account exists (to be sure it's still there)
-	if (fexist(file))
-		fremove(file); // Delete the bank account
+    // If there is any money left in the account, give the funds back to the player
+    RewardPlayer(playerid, APlayerData[playerid][BankMoney], 0);
+    
+    // Inform the player about the remaining funds of your bank account
+    if (APlayerData[playerid][BankMoney] > 0)
+        SendClientMessage(playerid, COLOR_GREEN, "There was still some money in your bank account, it has been given to your character");
 
-	// If there is any money left in the account, give the funds back to the player
-	RewardPlayer(playerid, APlayerData[playerid][BankMoney], 0);
-	// Inform the player about the remaining funds of your bank account
-	if (APlayerData[playerid][BankMoney] > 0)
-	    SendClientMessage(playerid, COLOR_GREEN, "There was still some money in your bank account, it has been given to your character");
+    // Save the player's account
+    PlayerFile_Save(playerid);
 
-	// Save the player's account
-	PlayerFile_Save(playerid);
+    // Clear the data from the player's account
+    APlayerData[playerid][BankPassword] = 0;
+    APlayerData[playerid][BankLoggedIn] = false;
+    APlayerData[playerid][BankMoney] = 0;
 
-	// Clear the data from the player's account
-	APlayerData[playerid][BankPassword] = 0;
-	APlayerData[playerid][BankLoggedIn] = false;
-	APlayerData[playerid][BankMoney] = 0;
+    // Inform the player about it
+    SendClientMessage(playerid, COLOR_GREEN, "Your bank account has been deleted");
 
-	// Inform the player about it
-	SendClientMessage(playerid, COLOR_GREEN, "Your bank account has been deleted");
-
-	return 1;
+    return 1;
 }
 
 // Process the chosen help-item
