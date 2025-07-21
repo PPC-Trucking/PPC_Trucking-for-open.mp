@@ -2560,6 +2560,18 @@ Dialog_BankDeposit(playerid, response, const inputtext[])
 	// Convert the entered text into an integer
 	DepositMoney = strval(inputtext);
 
+	if (DepositMoney <= 0)
+	{
+		SendClientMessage(playerid, COLOR_RED, "You need to enter a positive amount of money to deposit");
+		return 1;
+	}
+
+	if (DepositMoney > 2000000000)
+	{
+		SendClientMessage(playerid, COLOR_RED, "Amount too large. Maximum deposit is $2,000,000,000");
+		return 1;
+	}
+
 	// Check if the player entered a positive amount of money
 	if (DepositMoney > 0)
 	{
@@ -2600,6 +2612,18 @@ Dialog_BankWithdraw(playerid, response, const inputtext[])
 
 	// Convert the entered text into an integer
 	WithdrawMoney = strval(inputtext);
+
+	if (WithdrawMoney <= 0)
+	{
+		SendClientMessage(playerid, COLOR_RED, "You need to enter a positive amount of money to withdraw");
+		return 1;
+	}
+
+	if (WithdrawMoney > 2000000000) // Prevent integer overflow
+	{
+		SendClientMessage(playerid, COLOR_RED, "Amount too large. Maximum withdrawal is $2,000,000,000");
+		return 1;
+	}
 
 	// Check if the player entered a positive amount of money
 	if (WithdrawMoney > 0)
@@ -2766,12 +2790,21 @@ Dialog_BankTransferName(playerid, response, const inputtext[])
         
         // Create a transfer record
         mysql_format(Database, query, sizeof(query), "INSERT INTO `bank_transfers` (`SenderName`, `ReceiverName`, `TransferAmount`, `TransferTime`, `IsProcessed`) VALUES ('%e', '%e', %d, %d, 0)",
-            SenderName,
-            inputtext,
-            APlayerData[playerid][UseMoney],
-            TransferTime
-        );
-        mysql_query(Database, query);
+			SenderName,
+			inputtext,
+			APlayerData[playerid][UseMoney],
+			TransferTime
+		);
+		mysql_query(Database, query);
+
+		if (CheckMySQLError("Dialog_BankTransferName - INSERT transfer"))
+		{
+			// Refund the money if the transfer failed
+			APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] + APlayerData[playerid][UseMoney];
+			SendClientMessage(playerid, COLOR_RED, "Transfer failed due to database error. Money has been refunded.");
+			cache_delete(result);
+			return 1;
+		}
         
         // Take the money away from your own bank account
         APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] - APlayerData[playerid][UseMoney];
