@@ -832,6 +832,12 @@ BankFile_Save(playerid)
     mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", Name);
     new Cache:result = mysql_query(Database, query);
     
+    if (CheckMySQLError("BankFile_Save - SELECT"))
+    {
+        cache_delete(result);
+        return 0;
+    }
+    
     if (cache_num_rows() > 0) {
         // Update existing bank account
         mysql_format(Database, query, sizeof(query), "UPDATE `banks` SET `BankPassword` = '%e', `BankMoney` = %d, `LastInterestTime` = %d WHERE `PlayerName` = '%e'",
@@ -840,6 +846,13 @@ BankFile_Save(playerid)
             APlayerData[playerid][LastInterestTime],
             Name
         );
+        mysql_query(Database, query);
+        
+        if (CheckMySQLError("BankFile_Save - UPDATE"))
+        {
+            cache_delete(result);
+            return 0;
+        }
     } else {
         // Create a new bank account
         mysql_format(Database, query, sizeof(query), "INSERT INTO `banks` (`PlayerName`, `BankPassword`, `BankMoney`, `LastInterestTime`) VALUES ('%e', '%e', %d, %d)",
@@ -848,11 +861,16 @@ BankFile_Save(playerid)
             APlayerData[playerid][BankMoney],
             APlayerData[playerid][LastInterestTime]
         );
+        mysql_query(Database, query);
+        
+        if (CheckMySQLError("BankFile_Save - INSERT"))
+        {
+            cache_delete(result);
+            return 0;
+        }
     }
     
-    mysql_query(Database, query);
     cache_delete(result);
-    
     return 1;
 }
 
@@ -897,3 +915,17 @@ InterestTime_Save()
     return 1;
 }
 
+// Function to check MySQL errors and log them
+stock CheckMySQLError(const function_name[])
+{
+    new error[256];
+    mysql_errno(Database);
+    
+    if (mysql_errno(Database) != 0)
+    {
+        mysql_error(error, sizeof(error), Database);
+        printf("[MYSQL ERROR] in %s: Error %d - %s", function_name, mysql_errno(Database), error);
+        return 1;
+    }
+    return 0;
+}
