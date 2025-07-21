@@ -311,3 +311,23 @@ public OnPlayerDataSaved(playerid)
     }
     return 1;
 }
+
+// Function to check if database connection is alive
+stock bool:IsDatabaseConnected()
+{
+    if (Database == MYSQL_INVALID_HANDLE)
+    {
+        printf("[MYSQL ERROR] Database handle is invalid");
+        return false;
+    }
+    
+    // Try a simple query to test connection
+    new Cache:result = mysql_query(Database, "SELECT 1");
+    if (CheckMySQLError("Database Connection Test"))
+    {
+        return false;
+    }
+    
+    cache_delete(result);
+    return true;
+}
