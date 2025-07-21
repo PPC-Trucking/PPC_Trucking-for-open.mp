@@ -271,35 +271,41 @@ public Roadworker_RepairCamera(playerid)
 // This function checks if there are camera's defined and returns a random CamID
 GetRandomCamera(Exception)
 {
-	// Setup local variables
-	new CameraList[100], CamCount = -1, CamID;
-
-	// Build the list of camera's
-	for (CamID = 0; CamID < 100; CamID++)
-	{
-	    // Check if there is a camera defined at this location
-		if (ACameras[CamID][CamSpeed] > 0)
-		{
-			// Increase the camera-counter to select the next index in the list
-			CamCount++;
-			// Store the CamID in the list
-			CameraList[CamCount] = CamID;
-		}
-	}
-
-	// If there are no camera's, return -1
-	if (CamCount == -1)
-	    return -1;
-
-	// Get a random CameraID
-	CamID = CameraList[random(CamCount + 1)];
-
-	// Prevent the same camera being chosen as before
-	while (CamID == Exception)
-		CamID = CameraList[random(CamCount + 1)];
-
-	// Choose a random camera from the list
-	return CamID;
+    // Setup local variables
+    new CameraList[MAX_CAMERAS], CamCount = -1, CamID;
+    
+    // Build the list of camera's (excluding the exception if possible)
+    for (CamID = 0; CamID < MAX_CAMERAS; CamID++)
+    {
+        // Check if there is a camera defined at this location and it's not the exception
+        if (ACameras[CamID][CamSpeed] > 0 && CamID != Exception)
+        {
+            // Increase the camera-counter to select the next index in the list
+            CamCount++;
+            // Store the CamID in the list
+            CameraList[CamCount] = CamID;
+        }
+    }
+    
+    // If no cameras found (excluding exception), include all cameras
+    if (CamCount == -1)
+    {
+        for (CamID = 0; CamID < MAX_CAMERAS; CamID++)
+        {
+            if (ACameras[CamID][CamSpeed] > 0)
+            {
+                CamCount++;
+                CameraList[CamCount] = CamID;
+            }
+        }
+    }
+    
+    // If there are still no camera's, return -1
+    if (CamCount == -1)
+        return -1;
+        
+    // Choose a random camera from the list
+    return CameraList[random(CamCount + 1)];
 }
 
 
