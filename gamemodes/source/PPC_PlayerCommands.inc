@@ -2648,7 +2648,7 @@ COMMAND:stats(playerid, params[])
 COMMAND:createcamera(playerid, params[])
 {
 	// Setup local variables
-	new Float:x, Float:y, Float:z, Float:Angle, MaxSpeed, file[100], File:PFile, LineForFile[100], Message[128];
+	new Float:x, Float:y, Float:z, Float:Angle, MaxSpeed, Message[128], Name[24];
 
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/createcamera", params);
@@ -2665,50 +2665,45 @@ COMMAND:createcamera(playerid, params[])
 				// Get player's position and facing angle
 				GetPlayerPos(playerid, x, y, z);
 				GetPlayerFacingAngle(playerid, Angle);
-				z = z - 1.0; // Adjust camera Z-coordinate 1m lower than normal (otherwise the camera floats in the air)
+				z = z - 1.0; // Adjust camera Z-coordinate 1m lower than normal
 
 				// Move the player a bit, otherwise he could get stuck inside the camera-object
 				SetPlayerPos(playerid, x, y + 1.0, z + 1.0);
 
-				// Save the camera to a file
-				for (new CamID; CamID < MAX_CAMERAS; CamID++)
+				// Get next available camera slot
+				new CamID = GetNextCameraSlot();
+				if (CamID == -1)
 				{
-					// Check if this index is free
-					if (ACameras[CamID][CamSpeed] == 0)
-					{
-					    // Setup this camera (create the objects and store the data)
-                        SetupSpeedCamera(CamID, x, y, z, Angle, MaxSpeed);
-
-					    // Save the file
-						format(file, sizeof(file), CameraFile, CamID); // Construct the complete filename for this camera-file
-
-						PFile = fopen(file, io_write); // Open the camera-file for writing
-
-						format(LineForFile, sizeof(LineForFile), "CamX %f\r\n", x);
-						fwrite(PFile, LineForFile); // And save it to the file
-						format(LineForFile, sizeof(LineForFile), "CamY %f\r\n", y);
-						fwrite(PFile, LineForFile); // And save it to the file
-						format(LineForFile, sizeof(LineForFile), "CamZ %f\r\n", z);
-						fwrite(PFile, LineForFile); // And save it to the file
-						format(LineForFile, sizeof(LineForFile), "CamAngle %f\r\n", Angle);
-						fwrite(PFile, LineForFile); // And save it to the file
-						format(LineForFile, sizeof(LineForFile), "CamSpeed %i\r\n", MaxSpeed);
-						fwrite(PFile, LineForFile); // And save it to the file
-
-						fclose(PFile); // Close the file
-
-						// Let the player know he created a new camera
-						format(Message, sizeof(Message), "You've created a speed-camera with ID: %i", CamID);
-						SendClientMessage(playerid, COLOR_GREEN, Message);
-
-						// Exit the function
-						return 1;
-					}
+					format(Message, sizeof(Message), "You cannot create more than %i speedcamera's", MAX_CAMERAS);
+					SendClientMessage(playerid, COLOR_RED, Message);
+					return 1;
 				}
 
-				// In case all camera-slots are occupied (100 camera's have been created already), let the player know about it
-				format(Message, sizeof(Message), "You cannot create more than %i speedcamera's", MAX_CAMERAS);
-				SendClientMessage(playerid, COLOR_RED, Message);
+				// Setup this camera (create the objects and store the data)
+				SetupSpeedCamera(CamID, x, y, z, Angle, MaxSpeed);
+
+				// Get player name for database record
+				GetPlayerName(playerid, Name, sizeof(Name));
+
+				// Save the camera to database
+				if (CameraFile_Save(CamID, Name))
+				{
+					// Let the player know he created a new camera
+					format(Message, sizeof(Message), "You've created a speed-camera with ID: %i", CamID + 1);
+					SendClientMessage(playerid, COLOR_GREEN, Message);
+				}
+				else
+				{
+					SendClientMessage(playerid, COLOR_RED, "Failed to save camera to database");
+					// Clear the camera from memory since database save failed
+					ACameras[CamID][CamX] = 0.0;
+					ACameras[CamID][CamY] = 0.0;
+					ACameras[CamID][CamZ] = 0.0;
+					ACameras[CamID][CamAngle] = 0.0;
+					ACameras[CamID][CamSpeed] = 0;
+					DestroyObject(ACameras[CamID][CamObj1]);
+					DestroyObject(ACameras[CamID][CamObj2]);
+				}
 			}
 		}
 		else
@@ -2725,7 +2720,7 @@ COMMAND:createcamera(playerid, params[])
 COMMAND:delcamera(playerid, params[])
 {
 	// Setup local variables
-	new file[100], Message[128];
+	new Message[128];
 
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/delcamera", params);
@@ -2736,8 +2731,8 @@ COMMAND:delcamera(playerid, params[])
 		// Check if the player's admin-level is at least 5
 		if (APlayerData[playerid][PlayerLevel] >= 5)
 		{
-				// Loop through all camera's
-			for (new CamID; CamID < MAX_CAMERAS; CamID++)
+			// Loop through all camera's
+			for (new CamID = 0; CamID < MAX_CAMERAS; CamID++)
 			{
 				// Check if this index is used
 				if (ACameras[CamID][CamSpeed] != 0)
@@ -2745,26 +2740,30 @@ COMMAND:delcamera(playerid, params[])
 					// Check if the player is in range of the camera
 					if (IsPlayerInRangeOfPoint(playerid, 5.0, ACameras[CamID][CamX], ACameras[CamID][CamY], ACameras[CamID][CamZ]))
 					{
-					    // Delete the file
-						format(file, sizeof(file), CameraFile, CamID); // Construct the complete filename for this camera-file
-						if (fexist(file)) // Make sure the file exists
-							fremove(file); // Delete the file
+						// Delete from database
+						if (CameraFile_Delete(CamID))
+						{
+							// Delete both camera objects
+							DestroyObject(ACameras[CamID][CamObj1]);
+							DestroyObject(ACameras[CamID][CamObj2]);
+							
+							// Also clear the data from memory
+							ACameras[CamID][CamX] = 0.0;
+							ACameras[CamID][CamY] = 0.0;
+							ACameras[CamID][CamZ] = 0.0;
+							ACameras[CamID][CamAngle] = 0.0;
+							ACameras[CamID][CamSpeed] = 0;
+							ACameras[CamID][CamObj1] = 0;
+							ACameras[CamID][CamObj2] = 0;
 
-						// Delete both camera objects
-					    DestroyObject(ACameras[CamID][CamObj1]);
-					    DestroyObject(ACameras[CamID][CamObj2]);
-						// Also clear the data from memory
-					    ACameras[CamID][CamX] = 0.0;
-					    ACameras[CamID][CamY] = 0.0;
-					    ACameras[CamID][CamZ] = 0.0;
-					    ACameras[CamID][CamAngle] = 0.0;
-					    ACameras[CamID][CamSpeed] = 0;
-                        ACameras[CamID][CamObj1] = 0;
-                        ACameras[CamID][CamObj2] = 0;
-
-						// Let the player know he deleted a camera
-						format(Message, sizeof(Message), "You've deleted speed-camera %i", CamID);
-						SendClientMessage(playerid, COLOR_GREEN, Message);
+							// Let the player know he deleted a camera
+							format(Message, sizeof(Message), "You've deleted speed-camera %i", CamID + 1);
+							SendClientMessage(playerid, COLOR_GREEN, Message);
+						}
+						else
+						{
+							SendClientMessage(playerid, COLOR_RED, "Failed to delete camera from database");
+						}
 
 						// Exit the function
 						return 1;
