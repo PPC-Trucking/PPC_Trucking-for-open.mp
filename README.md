@@ -12,7 +12,7 @@ It includes **MySQL integration** for player data storage and **bcrypt** for sec
 
 ---
 > [!WARNING]  
-> Currently, the MySQL integration only handles player data. Other systems such as houses, businesses, cameras, etc., are still stored in .ini files. The migration of these systems to MySQL is actively in progress.
+> MySQL integration is actively progressing! **Banking system** and **speed cameras** are now fully converted to MySQL with enhanced security. Houses and businesses are still stored in .ini files but migration is planned.
 ---
 
 ## **Features**
@@ -21,6 +21,13 @@ It includes **MySQL integration** for player data storage and **bcrypt** for sec
 - **MySQL Integration**: Persistent data storage for player stats, vehicles, and more.
 - **Bcrypt Support**: Secure password hashing for player accounts.
 - Includes almost all necessary files and configurations to set up your server quickly.
+
+---
+
+## **Database Migration Status**
+✅ **Completed**: Player accounts, Banking system, Speed cameras  
+🔄 **In Progress**: Houses, Businesses, Vehicle ownership  
+📋 **Planned**: Complete file-to-database migration
 
 ---
 
