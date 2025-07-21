@@ -463,69 +463,91 @@ HouseFile_Save(HouseID)
 // This function loads all speedcameras
 Camera_LoadAll()
 {
-	// Loop through all cameras and try to load them
-	for (new CamID; CamID < MAX_CAMERAS; CamID++)
-	{
-	    // Try to load the file and check if it was succesfully loaded (file exists)
-		if (CameraFile_Load(CamID) == 1)
-		{
-			// Save the number of camera's that have been loaded, so it can be displayed
-		    TotalCameras++;
-		}
-	}
-
-	return 1;
+    new query[128];
+    
+    // Query all cameras from database
+    mysql_format(Database, query, sizeof(query), "SELECT * FROM `cameras` ORDER BY `CameraID`");
+    new Cache:result = mysql_query(Database, query);
+    
+    new rows = cache_num_rows();
+    if (rows > 0)
+    {
+        new CameraID, Float:x, Float:y, Float:z, Float:angle, maxSpeed;
+        
+        for (new i = 0; i < rows; i++)
+        {
+            cache_get_value_name_int(i, "CameraID", CameraID);
+            cache_get_value_name_float(i, "CamX", x);
+            cache_get_value_name_float(i, "CamY", y);
+            cache_get_value_name_float(i, "CamZ", z);
+            cache_get_value_name_float(i, "CamAngle", angle);
+            cache_get_value_name_int(i, "CamSpeed", maxSpeed);
+            
+            // Setup camera in memory and create objects
+            // Use CameraID-1 as array index since database IDs start from 1, arrays from 0
+            if (CameraID > 0 && CameraID <= MAX_CAMERAS)
+            {
+                SetupSpeedCamera(CameraID - 1, x, y, z, angle, maxSpeed);
+                TotalCameras++;
+            }
+        }
+    }
+    
+    cache_delete(result);
+    printf("[CAMERAS] Loaded %d cameras from database", TotalCameras);
+    
+    return 1;
 }
 
-
-
-// This function will load the speedcamera's datafile (used when the server is started to load all cameras)
-CameraFile_Load(CamID)
+// This function saves a camera to the database
+CameraFile_Save(CamID, const createdBy[] = "")
 {
-	// Setup local variables
-	new file[100], File:CFile, LineFromFile[100], ParameterName[50], ParameterValue[50];
-	new Float:x, Float:y, Float:z, Float:rot, MaxSpeed;
-
-	format(file, sizeof(file), CameraFile, CamID); // Construct the complete filename for this camera-file
-
-	if (fexist(file))
-	{
-		CFile = fopen(file, io_read); // Open the camerafile for reading
-
-		fread(CFile, LineFromFile); // Read the first line of the file
-
-		// Keep reading until the end of the file is found (no more data)
-		while (strlen(LineFromFile) > 0)
-		{
-			StripNewLine(LineFromFile); // Strip any newline characters from the LineFromFile
-			sscanf(LineFromFile, "s[50]s[50]", ParameterName, ParameterValue); // Extract parametername and parametervalue
-
-			// Store the proper value in the proper place
-			if (strcmp(ParameterName, "CamX", false) == 0) // If the parametername is correct ("CamX")
-			    x = floatstr(ParameterValue); // Store the CamX
-			if (strcmp(ParameterName, "CamY", false) == 0) // If the parametername is correct ("CamY")
-			    y = floatstr(ParameterValue); // Store the CamY
-			if (strcmp(ParameterName, "CamZ", false) == 0) // If the parametername is correct ("CamZ")
-			    z = floatstr(ParameterValue); // Store the CamZ
-			if (strcmp(ParameterName, "CamAngle", false) == 0) // If the parametername is correct ("CamAngle")
-			    rot = floatstr(ParameterValue); // Store the CamAngle
-			if (strcmp(ParameterName, "CamSpeed", false) == 0) // If the parametername is correct ("CamSpeed")
-			    MaxSpeed = strval(ParameterValue); // Store the CamSpeed
-
-			fread(CFile, LineFromFile); // Read the next line of the file
-		}
-
-		fclose(CFile); // Close the file
-
-		// All data has been read about the camera, now setup the camera
-		SetupSpeedCamera(CamID, x, y, z, rot, MaxSpeed);
-
-		return 1; // Return that the file was read correctly
-	}
-	else
-	    return 0; // Return 0 if the file couldn't be read (doesn't exist)
+    new query[256];
+    
+    // Insert camera into database (CamID+1 because database IDs start from 1)
+    mysql_format(Database, query, sizeof(query), 
+        "INSERT INTO `cameras` (`CamX`, `CamY`, `CamZ`, `CamAngle`, `CamSpeed`, `CreatedBy`) VALUES (%f, %f, %f, %f, %d, '%e')",
+        ACameras[CamID][CamX],
+        ACameras[CamID][CamY], 
+        ACameras[CamID][CamZ],
+        ACameras[CamID][CamAngle],
+        ACameras[CamID][CamSpeed],
+        createdBy
+    );
+    
+    mysql_query(Database, query);
+    
+    if (CheckMySQLError("CameraFile_Save"))
+        return 0;
+    
+    return 1;
 }
 
+// This function deletes a camera from the database
+CameraFile_Delete(CamID)
+{
+    new query[128];
+    
+    // Delete camera from database (CamID+1 because database IDs start from 1)
+    mysql_format(Database, query, sizeof(query), "DELETE FROM `cameras` WHERE `CameraID` = %d", CamID + 1);
+    mysql_query(Database, query);
+    
+    if (CheckMySQLError("CameraFile_Delete"))
+        return 0;
+    
+    return 1;
+}
+
+// This function gets the next available camera slot
+GetNextCameraSlot()
+{
+    for (new CamID = 0; CamID < MAX_CAMERAS; CamID++)
+    {
+        if (ACameras[CamID][CamSpeed] == 0) // Empty slot
+            return CamID;
+    }
+    return -1; // No free slots
+}
 
 
 // This function loads all businesses
