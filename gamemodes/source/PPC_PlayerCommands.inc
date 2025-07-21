@@ -4828,27 +4828,36 @@ COMMAND:setcash(playerid, params[])
 COMMAND:bank(playerid, params[])
 {
 	// Setup local variables
-	new file[100], Name[MAX_PLAYER_NAME];
+	new Name[MAX_PLAYER_NAME], query[256];
 
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/bank", params);
 
     // Get the playername
 	format(Name, sizeof(Name), APlayerData[playerid][PlayerName]);
-	// Construct the complete filename for this player's bank-account
-	format(file, sizeof(file), BankFile, Name);
 
 	// Check if the player has logged in
 	if (APlayerData[playerid][LoggedIn] == true)
 	{
-		// Check if the player doesn't have a bank account
-		if (!fexist(file))
+		// Check if the player has a bank account in the database
+		mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", Name);
+		new Cache:result = mysql_query(Database, query);
+		
+		if (cache_num_rows() == 0) // Player doesn't have a bank account
 		{
+			cache_delete(result);
 			// Ask for a password to setup his bank account
 			ShowPlayerDialog(playerid, DialogBankPasswordRegister, DIALOG_STYLE_PASSWORD, "Enter password", "Please enter a password to register your bank account:", TXT_DialogButtonSelect, TXT_DialogButtonCancel);
 		}
 		else // The player has a bank account
 		{
+			// Load the bank password from the database if not already loaded
+			if (strlen(APlayerData[playerid][BankPassword]) == 0)
+			{
+				cache_get_value_name(0, "BankPassword", APlayerData[playerid][BankPassword], BCRYPT_HASH_LENGTH);
+			}
+			cache_delete(result);
+			
 			// If the player hasn't logged in to his bank account yet
 			if (APlayerData[playerid][BankLoggedIn] == false)
 			{
