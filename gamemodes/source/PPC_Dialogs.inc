@@ -2431,8 +2431,35 @@ Dialog_BankPasswordLogin(playerid, response, const inputtext[])
     // Check if the player entered a valid password
     if ((strlen(inputtext) > 0) && (strlen(inputtext) < 20))
     {
-        // Verify the password against the stored hash
-        bcrypt_verify(playerid, "OnBankPasswordVerify", inputtext, APlayerData[playerid][BankPassword]);
+        // Check if we need to load the bank password from database first
+        if (strlen(APlayerData[playerid][BankPassword]) == 0)
+        {
+            // Load bank password from database
+            new Name[24], query[256];
+            GetPlayerName(playerid, Name, sizeof(Name));
+            mysql_format(Database, query, sizeof(query), "SELECT BankPassword FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", Name);
+            new Cache:result = mysql_query(Database, query);
+            
+            if (cache_num_rows() > 0)
+            {
+                cache_get_value_name(0, "BankPassword", APlayerData[playerid][BankPassword], BCRYPT_HASH_LENGTH);
+                cache_delete(result);
+                
+                // Now verify the password
+                bcrypt_verify(playerid, "OnBankPasswordVerify", inputtext, APlayerData[playerid][BankPassword]);
+            }
+            else
+            {
+                cache_delete(result);
+                SendClientMessage(playerid, COLOR_RED, "Bank account not found in database");
+                return 1;
+            }
+        }
+        else
+        {
+            // Password already loaded, verify directly
+            bcrypt_verify(playerid, "OnBankPasswordVerify", inputtext, APlayerData[playerid][BankPassword]);
+        }
     }
     else
         SendClientMessage(playerid, COLOR_RED, "You need to enter the correct password to login to your bank account");
@@ -2646,6 +2673,7 @@ Dialog_BankTransferMoney(playerid, response, const inputtext[])
 }
 
 // Process the transfer option (player entered the name of the other player who must receive the money)
+// Process the transfer option (player entered the name of the other player who must receive the money)
 Dialog_BankTransferName(playerid, response, const inputtext[])
 {
     // Just close the dialog if the player clicked "Cancel"
@@ -2666,8 +2694,22 @@ Dialog_BankTransferName(playerid, response, const inputtext[])
         return 1;
     }
     
-    // Try to convert the given playername OR playerid to a playerid
+    // Check if player is trying to transfer to themselves (by name)
+    if (strcmp(SenderName, inputtext, true) == 0)
+    {
+        SendClientMessage(playerid, COLOR_RED, "You cannot transfer money to yourself");
+        return 1;
+    }
+    
+    // Check if player is trying to transfer to themselves (by ID)
     new OtherPlayer;
+    if (sscanf(inputtext, "u", OtherPlayer) == 0 && OtherPlayer == playerid)
+    {
+        SendClientMessage(playerid, COLOR_RED, "You cannot transfer money to yourself");
+        return 1;
+    }
+    
+    // Try to convert the given playername OR playerid to a playerid
     if (sscanf(inputtext, "u", OtherPlayer) == 0 && OtherPlayer != INVALID_PLAYER_ID)
     {
         // Check if that other player is online (use online bank-transfer)
