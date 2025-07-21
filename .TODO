@@ -1,3 +1,0 @@
-Issue #1:
-    When doing /bank, it fails to check if the player has an account. It asks to create a new password.
-    The account creation works fine and hashes the password correctly.
