@@ -66,33 +66,32 @@ public OnPlayerAccountCheck(playerid)
     {
         // An account exists with that name.
         cache_get_value(0, "PlayerPassword", APlayerData[playerid][PlayerPassword]);
-		cache_get_value(0, "BanTime", APlayerData[playerid][BanTime]);
+        cache_get_value(0, "BanTime", APlayerData[playerid][BanTime]);
 
         // check if the player is permanently banned
-		if (APlayerData[playerid][BanTime] == -1) 
+        if (APlayerData[playerid][BanTime] == -1) 
         {
-			SendClientMessage(playerid, COLOR_WHITE, TXT_BannedPermanently);
-			SetTimerEx("TimedKick", 1000, false, "i", playerid); // Kick the player
-		}
+            SendClientMessage(playerid, COLOR_WHITE, TXT_BannedPermanently);
+            SetTimerEx("TimedKick", 1000, false, "i", playerid); // Kick the player
+        }
 
-		// Check if the player is still banned
-		else if (APlayerData[playerid][BanTime] > gettime()) // Player is still banned
-		{
-			ShowRemainingBanTime(playerid); // Show the remaining ban-time to the player is days, hours, minutes, seconds
-			SetTimerEx("TimedKick", 1000, false, "i", playerid); // Kick the player			
-		}
+        // Check if the player is still banned
+        else if (APlayerData[playerid][BanTime] > gettime()) // Player is still banned
+        {
+            ShowRemainingBanTime(playerid); // Show the remaining ban-time to the player is days, hours, minutes, seconds
+            SetTimerEx("TimedKick", 1000, false, "i", playerid); // Kick the player            
+        }
 
         // Player ban-time is passed or he isn't banned
-		else // Player ban-time is passed
-		{ 
-			ShowPlayerDialog(playerid, DialogLogin, DIALOG_STYLE_PASSWORD, TXT_DialogLoginTitle, TXT_DialogLoginMsg, TXT_DialogLoginButton1, TXT_DialogButtonCancel);
-		}
+        else // Player ban-time is passed
+        { 
+            ShowPlayerDialog(playerid, DialogLogin, DIALOG_STYLE_PASSWORD, TXT_DialogLoginTitle, TXT_DialogLoginMsg, TXT_DialogLoginButton1, TXT_DialogButtonCancel);
+        }
     }
     else
     { 
         // That name is not registered. Player needs to register.
         ShowPlayerDialog(playerid, DialogRegister, DIALOG_STYLE_PASSWORD, TXT_DialogRegisterTitle, TXT_DialogRegisterMsg, TXT_DialogRegisterButton1, TXT_DialogButtonCancel);
-
     }
 
     return 1;
@@ -174,17 +173,20 @@ public OnPlayerVerifyPassword(playerid, bool:success)
 forward OnPlayerAccountLoad(playerid);
 public OnPlayerAccountLoad(playerid)
 {
+    // Check if we actually found the player in the database
+    if (cache_num_rows() == 0)
+    {
+        printf("Error: Player %d's account not found in database during login", playerid);
+        SendClientMessage(playerid, COLOR_RED, "Account not found. Please register first.");
+        SetTimerEx("TimedKick", 1000, false, "i", playerid);
+        return 0;
+    }
+
     // Mark the player as logged in
     APlayerData[playerid][LoggedIn] = true;
 
-    // Load the player file
-    PlayerFile_Load(playerid);
-
-    // Load the player's bank account
-    BankFile_Load(playerid);
-
     // Load player data from the database
-	cache_get_value_name_int(0, "PlayerID", APlayerData[playerid][PlayerID]);
+    cache_get_value_name_int(0, "PlayerID", APlayerData[playerid][PlayerID]);
     cache_get_value_name_int(0, "PlayerLevel", APlayerData[playerid][PlayerLevel]);
     cache_get_value_name_int(0, "PlayerJailed", APlayerData[playerid][PlayerJailed]);
     cache_get_value_name_int(0, "WantedLevel", APlayerData[playerid][WantedLevel]);
@@ -217,6 +219,21 @@ public OnPlayerAccountLoad(playerid)
     cache_get_value_name_int(0, "StatsCourierJobs", APlayerData[playerid][StatsCourierJobs]);
     cache_get_value_name_int(0, "StatsRoadworkerJobs", APlayerData[playerid][StatsRoadworkerJobs]);
 
+    // Validate that PlayerID was loaded correctly
+    if (APlayerData[playerid][PlayerID] <= 0)
+    {
+        printf("Error: Player %d loaded invalid PlayerID (%d) from database", playerid, APlayerData[playerid][PlayerID]);
+        SendClientMessage(playerid, COLOR_RED, "Database error loading your account. Please contact an administrator.");
+        SetTimerEx("TimedKick", 1000, false, "i", playerid);
+        return 0;
+    }
+
+    // Load the player file
+    PlayerFile_Load(playerid);
+
+    // Load the player's bank account
+    BankFile_Load(playerid);
+
     // Set the player's wanted level
     SetPlayerWantedLevel(playerid, APlayerData[playerid][WantedLevel]);
 
@@ -228,12 +245,33 @@ public OnPlayerAccountLoad(playerid)
 
     // Notify the player
     SendClientMessage(playerid, COLOR_WHITE, TXT_LoggedIn);
+    
+    printf("Player %d logged in successfully with PlayerID %d", playerid, APlayerData[playerid][PlayerID]);
 
     return 1;
 }
 
 SavePlayerData(playerid)
 {
+    // Validate player data before saving
+    if (!IsPlayerConnected(playerid))
+    {
+        printf("Error: Attempted to save data for disconnected player %d", playerid);
+        return 0;
+    }
+    
+    if (APlayerData[playerid][PlayerID] <= 0)
+    {
+        printf("Error: Player %d has invalid PlayerID (%d), cannot save data", playerid, APlayerData[playerid][PlayerID]);
+        return 0;
+    }
+    
+    if (!APlayerData[playerid][LoggedIn])
+    {
+        printf("Error: Player %d is not logged in, cannot save data", playerid);
+        return 0;
+    }
+
     // Create a query string
     new query[1024];
 
@@ -274,7 +312,7 @@ SavePlayerData(playerid)
         APlayerData[playerid][Muted],
         APlayerData[playerid][PlayerMoney],
         APlayerData[playerid][PlayerScore],
-        (APlayerData[playerid][RulesRead]) ? ("Yes") : ("No"), // Convert boolean to string
+        (APlayerData[playerid][RulesRead]) ? ("Yes") : ("No"),
         APlayerData[playerid][StatsMetersDriven],
         APlayerData[playerid][StatsTruckerJobs],
         APlayerData[playerid][StatsConvoyJobs],
@@ -289,11 +327,10 @@ SavePlayerData(playerid)
         APlayerData[playerid][StatsRoadworkerJobs],
         APlayerData[playerid][PlayerID]);
 
-    // Execute the query
+    // Execute the query with error handling
     mysql_tquery(Database, query, "OnPlayerDataSaved", "i", playerid);
-
-    // Notify the player
-    SendClientMessage(playerid, COLOR_WHITE, "Your data has been saved successfully.");
+    
+    return 1;
 }
 
 // Optional callback to handle the query result
@@ -304,10 +341,31 @@ public OnPlayerDataSaved(playerid)
     if (cache_affected_rows() > 0)
     {
         printf("Player %d's data has been saved to the database.", playerid);
+        
+        // Only notify player if they're still connected
+        if (IsPlayerConnected(playerid))
+            SendClientMessage(playerid, COLOR_GREEN, "Your data has been saved successfully.");
     }
     else
     {
-        printf("Failed to save player %d's data to the database.", playerid);
+        printf("Failed to save player %d's data to the database. No rows affected.", playerid);
+        
+        // Log additional debugging info
+        new Name[24];
+        if (IsPlayerConnected(playerid))
+        {
+            GetPlayerName(playerid, Name, sizeof(Name));
+            printf("Debug: Player %s (ID: %d, PlayerID: %d, LoggedIn: %d)", 
+                Name, playerid, APlayerData[playerid][PlayerID], APlayerData[playerid][LoggedIn]);
+        }
+        
+        // Check for MySQL errors
+        if (mysql_errno(Database) != 0)
+        {
+            new error[256];
+            mysql_error(error, sizeof(error), Database);
+            printf("MySQL Error: %s", error);
+        }
     }
     return 1;
 }
