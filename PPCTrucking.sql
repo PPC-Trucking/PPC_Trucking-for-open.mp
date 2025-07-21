@@ -71,3 +71,69 @@ CREATE TABLE IF NOT EXISTS `cameras` (
   `DateCreated` timestamp DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`CameraID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Houses table
+CREATE TABLE IF NOT EXISTS `houses` (
+  `HouseID` int(11) NOT NULL AUTO_INCREMENT,
+  `HouseName` varchar(50) DEFAULT 'House',
+  `HouseX` float NOT NULL,
+  `HouseY` float NOT NULL, 
+  `HouseZ` float NOT NULL,
+  `HouseLevel` int(11) DEFAULT 1,
+  `HouseMaxLevel` int(11) DEFAULT 10,
+  `HousePrice` int(11) NOT NULL,
+  `Owned` tinyint(1) DEFAULT 0,
+  `Owner` varchar(24) DEFAULT NULL,
+  `Insurance` tinyint(1) DEFAULT 0,
+  `AutoEvictDays` int(11) DEFAULT 0,
+  `DateCreated` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `LastAccess` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`HouseID`),
+  KEY `idx_owner` (`Owner`),
+  KEY `idx_owned` (`Owned`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- House vehicles table (separate from houses for better normalization)
+CREATE TABLE IF NOT EXISTS `house_vehicles` (
+  `VehicleID` int(11) NOT NULL AUTO_INCREMENT,
+  `HouseID` int(11) NOT NULL,
+  `CarSlot` int(11) NOT NULL,
+  `VehicleModel` int(11) NOT NULL,
+  `Fuel` int(11) DEFAULT 100,
+  `VehiclePaintJob` int(11) DEFAULT -1,
+  `VehicleSpoiler` int(11) DEFAULT 0,
+  `VehicleHood` int(11) DEFAULT 0,
+  `VehicleRoof` int(11) DEFAULT 0,
+  `VehicleSideSkirt` int(11) DEFAULT 0,
+  `VehicleLamps` int(11) DEFAULT 0,
+  `VehicleNitro` int(11) DEFAULT 0,
+  `VehicleExhaust` int(11) DEFAULT 0,
+  `VehicleWheels` int(11) DEFAULT 0,
+  `VehicleStereo` int(11) DEFAULT 0,
+  `VehicleHydraulics` int(11) DEFAULT 0,
+  `VehicleFrontBumper` int(11) DEFAULT 0,
+  `VehicleRearBumper` int(11) DEFAULT 0,
+  `VehicleVentRight` int(11) DEFAULT 0,
+  `VehicleVentLeft` int(11) DEFAULT 0,
+  `Color1` int(11) DEFAULT -1,
+  `Color2` int(11) DEFAULT -1,
+  `VehicleX` float NOT NULL,
+  `VehicleY` float NOT NULL,
+  `VehicleZ` float NOT NULL,
+  `VehicleAngle` float NOT NULL,
+  `NeonsApplied` int(11) DEFAULT 0,
+  `Clamped` tinyint(1) DEFAULT 0,
+  PRIMARY KEY (`VehicleID`),
+  KEY `idx_house` (`HouseID`),
+  FOREIGN KEY (`HouseID`) REFERENCES `houses`(`HouseID`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Player-House relationship table (since players can own multiple houses)
+CREATE TABLE IF NOT EXISTS `player_houses` (
+  `PlayerID` int(11) NOT NULL,
+  `HouseID` int(11) NOT NULL,
+  `PurchaseDate` timestamp DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`PlayerID`, `HouseID`),
+  FOREIGN KEY (`PlayerID`) REFERENCES `players`(`PlayerID`) ON DELETE CASCADE,
+  FOREIGN KEY (`HouseID`) REFERENCES `houses`(`HouseID`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
