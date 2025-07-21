@@ -719,7 +719,7 @@ BusinessFile_Save(BusID)
 // This function will load the player's bank account and process transfers that were made to his account when he was offline
 BankFile_Load(playerid)
 {
-    new Name[24], query[256], Message[128], OldBankMoney, NewBankMoney, InterestAmount;
+    new Name[24], query[256], Message[128], OldBankMoney, NewBankMoney;
     
     GetPlayerName(playerid, Name, sizeof(Name));
     
@@ -730,44 +730,46 @@ BankFile_Load(playerid)
     // Check if player has a bank account
     if (cache_num_rows() > 0) {
         // Send a message to the player to inform him that he has a bank account
-        SendClientMessage(playerid, COLOR_DODGERBLUE, "You have a bank-account. Use {FFBB00}/bank{00BBFF} to login");
+        SendClientMessage(playerid, COLOR_DODGERBLUE, "You have a bank-account. Use {FFBB00}/bank{00BBFF} to access it");
         
-        // Get the player's bank data
-        cache_get_value_name(0, "BankPassword", APlayerData[playerid][BankPassword], 24);
+        // Load bank data from database
+        cache_get_value_name(0, "BankPassword", APlayerData[playerid][BankPassword], BCRYPT_HASH_LENGTH);
         cache_get_value_name_int(0, "BankMoney", APlayerData[playerid][BankMoney]);
         cache_get_value_name_int(0, "LastInterestTime", APlayerData[playerid][LastInterestTime]);
         
-        // Process interest if interest is enabled for the time the player was offline
-        if (InterestEnabled == true)
+        // Calculate interest if enabled
+        if (InterestEnabled == true && APlayerData[playerid][LastInterestTime] < CurrentInterestTime)
         {
-            // Check if the player has any money in his bank account (adding interest to $0 is useless)
-            if (APlayerData[playerid][BankMoney] > 0)
+            OldBankMoney = APlayerData[playerid][BankMoney];
+            
+            // Calculate compound interest for each time period missed
+            new Float:CurrentAmount = float(APlayerData[playerid][BankMoney]);
+            new PeriodsToCalculate = CurrentInterestTime - APlayerData[playerid][LastInterestTime];
+            
+            // Apply compound interest for each period
+            for (new i = 0; i < PeriodsToCalculate; i++)
             {
-                // Also process interest for this bank account for every hour the player was offline
-                if (APlayerData[playerid][LastInterestTime] < CurrentInterestTime)
-                {
-                    // Get the old amount of money
-                    OldBankMoney = APlayerData[playerid][BankMoney];
-                    // Count the hours the player was offline and didn't receive interest yet
-                    for (new i; i < (CurrentInterestTime - APlayerData[playerid][LastInterestTime]); i++)
-                    {
-                        // Calculate the interest
-                        InterestAmount = floatround(floatmul(APlayerData[playerid][BankMoney], BankInterest), floatround_floor);
-                        // Add the interest to this player's bank account
-                        APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] + InterestAmount;
-                    }
-                    // Get the new amount of money
-                    NewBankMoney = APlayerData[playerid][BankMoney];
-                    // Save the CurrentInterestTime for this bank account
-                    APlayerData[playerid][LastInterestTime] = CurrentInterestTime;
-                    
-                    // Inform the player that he received interest on his bank account and how much
-                    format(Message, sizeof(Message), "{00BBFF}You've received {FFBB00}$%i{00BBFF} interest on your bank account", NewBankMoney - OldBankMoney);
-                    SendClientMessage(playerid, COLOR_WHITE, Message);
-                    
-                    // Update the bank data after interest calculation
-                    BankFile_Save(playerid);
-                }
+                // Calculate interest on the current amount (compound interest)
+                new Float:InterestEarned = floatmul(CurrentAmount, BankInterest);
+                CurrentAmount = floatadd(CurrentAmount, InterestEarned);
+            }
+            
+            // Convert back to integer and update player's bank money
+            APlayerData[playerid][BankMoney] = floatround(CurrentAmount, floatround_floor);
+            NewBankMoney = APlayerData[playerid][BankMoney];
+            
+            // Save the CurrentInterestTime for this bank account
+            APlayerData[playerid][LastInterestTime] = CurrentInterestTime;
+            
+            // Only show message and save if interest was actually earned
+            if (NewBankMoney > OldBankMoney)
+            {
+                // Inform the player that he received interest on his bank account and how much
+                format(Message, sizeof(Message), "{00BBFF}You've received {FFBB00}$%i{00BBFF} interest on your bank account over %d period(s)", NewBankMoney - OldBankMoney, PeriodsToCalculate);
+                SendClientMessage(playerid, COLOR_WHITE, Message);
+                
+                // Update the bank data after interest calculation
+                BankFile_Save(playerid);
             }
         }
         
