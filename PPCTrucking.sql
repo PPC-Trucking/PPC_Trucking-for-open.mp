@@ -59,3 +59,15 @@ CREATE TABLE IF NOT EXISTS `settings` (
   PRIMARY KEY (`setting_id`),
   UNIQUE KEY `setting_name` (`setting_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `cameras` (
+  `CameraID` int(11) NOT NULL AUTO_INCREMENT,
+  `CamX` float NOT NULL,
+  `CamY` float NOT NULL,
+  `CamZ` float NOT NULL,
+  `CamAngle` float NOT NULL,
+  `CamSpeed` int(11) NOT NULL,
+  `CreatedBy` varchar(24) DEFAULT NULL,
+  `DateCreated` timestamp DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`CameraID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
