@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS `cameras` (
 -- Houses table
 CREATE TABLE IF NOT EXISTS `houses` (
   `HouseID` int(11) NOT NULL AUTO_INCREMENT,
-  `HouseName` varchar(50) DEFAULT 'House',
+  `HouseName` varchar(100) DEFAULT 'House',
   `HouseX` float NOT NULL,
   `HouseY` float NOT NULL, 
   `HouseZ` float NOT NULL,
@@ -136,4 +136,30 @@ CREATE TABLE IF NOT EXISTS `player_houses` (
   PRIMARY KEY (`PlayerID`, `HouseID`),
   FOREIGN KEY (`PlayerID`) REFERENCES `players`(`PlayerID`) ON DELETE CASCADE,
   FOREIGN KEY (`HouseID`) REFERENCES `houses`(`HouseID`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Auto-evict log table
+CREATE TABLE IF NOT EXISTS `auto_evict_log` (
+  `log_id` int(11) NOT NULL AUTO_INCREMENT,
+  `log_message` varchar(256) NOT NULL,
+  `log_date` timestamp DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`log_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Businesses table  
+CREATE TABLE IF NOT EXISTS `businesses` (
+  `BusinessID` int(11) NOT NULL AUTO_INCREMENT,
+  `BusinessName` varchar(100) DEFAULT 'Business',
+  `BusinessX` float NOT NULL,
+  `BusinessY` float NOT NULL,
+  `BusinessZ` float NOT NULL,
+  `BusinessType` int(11) NOT NULL,
+  `BusinessLevel` int(11) DEFAULT 1,
+  `LastTransaction` int(11) DEFAULT 0,
+  `Owned` tinyint(1) DEFAULT 0,
+  `Owner` varchar(24) DEFAULT NULL,
+  `AutoEvictDays` int(11) DEFAULT 0,
+  `DateCreated` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `LastAccess` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`BusinessID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

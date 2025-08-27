@@ -159,11 +159,11 @@ COMMAND:createhouse(playerid, params[])
 
 
 
-// This command lets the player delete a house
+// Updated /delhouse command
 COMMAND:delhouse(playerid, params[])
 {
 	// Setup local variables
-	new HouseID, file[100], Message[128];
+	new HouseID, Message[128];
 
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/delhouse", params);
@@ -198,37 +198,12 @@ COMMAND:delhouse(playerid, params[])
 	if (!IsPlayerInRangeOfPoint(playerid, 10, AHouseData[HouseID][HouseX], AHouseData[HouseID][HouseY], AHouseData[HouseID][HouseZ]))
 		return SendClientMessage(playerid, COLOR_RED, TXT_HouseNotInRange);
 
-	// Clear all data of the house
-    AHouseData[HouseID][HouseName] = 0;
-    AHouseData[HouseID][Insurance] = 0;
-    AHouseData[HouseID][HouseX] = 0.0;
-    AHouseData[HouseID][HouseY] = 0.0;
-    AHouseData[HouseID][HouseZ] = 0.0;
-    AHouseData[HouseID][HouseLevel] = 0;
-    AHouseData[HouseID][HouseMaxLevel] = 0;
-    AHouseData[HouseID][HousePrice] = 0;
-    AHouseData[HouseID][Owned] = false;
-    AHouseData[HouseID][Owner] = 0;
-    AHouseData[HouseID][HouseName] = 0;
-    AHouseData[HouseID][HouseName] = 0;
-    AHouseData[HouseID][HouseName] = 0;
-	
-	// Destroy the mapicon, 3DText and pickup for the house
-	DestroyDynamicPickup(AHouseData[HouseID][PickupID]);
-	DestroyDynamicMapIcon(AHouseData[HouseID][MapIconID]);
-	DestroyDynamic3DTextLabel(AHouseData[HouseID][DoorText]);
-    AHouseData[HouseID][PickupID] = 0;
-    AHouseData[HouseID][MapIconID] = 0;
+	// Delete the house using MySQL function
+	House_Delete(HouseID);
 
-	// Delete the house-file
-	format(file, sizeof(file), HouseFile, HouseID); // Construct the complete filename for this house-file
-	if (fexist(file)) // Make sure the file exists
-		fremove(file); // Delete the file
-
-	// Also let the player know he deleted the house
+	// Let the player know he deleted the house
 	SendClientMessage(playerid, COLOR_GREEN, TXT_HouseDeleted);
 
-	// Let the server know that this was a valid command
 	return 1;
 }
 

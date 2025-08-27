@@ -1384,7 +1384,7 @@ Dialog_UpgradeHouse(playerid, response, listitem)
 		House_UpdateEntrance(APlayerData[playerid][CurrentHouse]);
 
 		// Save the player-file (and his houses)
-		PlayerFile_Save(playerid);
+		SavePlayerData(playerid);
 	}
 	else
 	    SendClientMessage(playerid, COLOR_WHITE, TXT_CannotAffordUpgrade);
@@ -1423,15 +1423,17 @@ Dialog_ChangeHouseName(playerid, response, const inputtext[])
 	// Just close the dialog if the player clicked "Cancel" or if the player didn't input any text
 	if ((!response) || (strlen(inputtext) == 0)) return 1;
 
+	new HouseID = APlayerData[playerid][CurrentHouse];
+
 	// Change the name of the house
-	format(AHouseData[APlayerData[playerid][CurrentHouse]][HouseName], 100, inputtext);
+	format(AHouseData[HouseID][HouseName], 100, inputtext);
 	// Also update the 3DText at the entrance of the house
-	House_UpdateEntrance(APlayerData[playerid][CurrentHouse]);
+	House_UpdateEntrance(HouseID);
 	// Let the player know that the name of his house has been changed
 	SendClientMessage(playerid, COLOR_WHITE, TXT_ChangedHouseName);
 
-	// Save the player-file (and his houses)
-	PlayerFile_Save(playerid);
+	// Save the house to MySQL database
+	House_Save(HouseID);
 
 	return 1;
 }
@@ -1530,7 +1532,7 @@ Dialog_BuyCar(playerid, response, listitem)
 					SendClientMessage(playerid, COLOR_WHITE, TXT_PlayerMustUseGetVehicleAndPark);
 
 					// Save the player-file (and his houses)
-					PlayerFile_Save(playerid);
+					SavePlayerData(playerid);
 				}
 				else // The player has not enough money to buy this vehicle
 				    SendClientMessage(playerid, COLOR_WHITE, TXT_CannotAffordVehicle);
@@ -1558,18 +1560,17 @@ Dialog_BuyInsurance(playerid, response)
 	// Get the HouseID where the player is right now
 	new HouseID = APlayerData[playerid][CurrentHouse];
 
-	// Buy an insurance for this house's vehicles (insurance costs 10% of the house's baseprice)
+	// Buy insurance for this house's vehicles
 	AHouseData[HouseID][Insurance] = 1;
 	RewardPlayer(playerid, -(AHouseData[HouseID][HousePrice] / 10), 0);
 
-	// Let the player know he has bought a vehicle-insurance for this house
+	// Let the player know he has bought vehicle insurance
 	format(Msg, sizeof(Msg), TXT_PlayerBoughtInsurance, AHouseData[HouseID][HousePrice] / 10);
 	SendClientMessage(playerid, COLOR_WHITE, Msg);
 
-	// Save the player-file (and his houses)
-	PlayerFile_Save(playerid);
-	// Also save the sold house, otherwise the old ownership-data is still there
-	HouseFile_Save(HouseID);
+	// Save to MySQL database
+	House_Save(HouseID);
+	SavePlayerData(playerid);
 
 	return 1;
 }
@@ -1589,14 +1590,14 @@ Dialog_SellHouse(playerid, response)
 	// Set the position of the player at the entrance of his house
 	SetPlayerPos(playerid, AHouseData[HouseID][HouseX], AHouseData[HouseID][HouseY], AHouseData[HouseID][HouseZ]);
 
-	// Also clear the tracking-variable to track in which house the player is
+	// Clear the tracking-variable to track in which house the player is
 	APlayerData[playerid][CurrentHouse] = 0;
 
 	// Clear the owner of the house
 	AHouseData[HouseID][Owned] = false;
-	AHouseData[HouseID][Owner] = 0;
+	format(AHouseData[HouseID][Owner], 24, "");
 	// Clear the house-name and house-level
-	AHouseData[HouseID][HouseName] = 0;
+	format(AHouseData[HouseID][HouseName], 100, "House");
 	AHouseData[HouseID][HouseLevel] = 1;
 
 	// Refund the player 50% of the worth of the house
@@ -1606,30 +1607,25 @@ Dialog_SellHouse(playerid, response)
 	// Clear the house-id from the player
 	for (new i; i < MAX_HOUSESPERPLAYER; i++)
 	{
-		// If the house-slot if found where the house was added to the player
 		if (APlayerData[playerid][Houses][i] == HouseID)
 		{
-		    // Clear the house-id
 		    APlayerData[playerid][Houses][i] = 0;
-		    // Stop searching
 		    break;
 		}
 	}
 
-	// Update the 3DText near the house's entrance to show other players that it's for sale again
+	// Update the house entrance
 	House_UpdateEntrance(HouseID);
 
-	// Save the player-file (and his houses)
-	PlayerFile_Save(playerid);
-	// Also save the sold house, otherwise the old ownership-data is still there
-	HouseFile_Save(HouseID);
+	// Save to MySQL database
+	House_Save(HouseID);
+	SavePlayerData(playerid);
 
 	return 1;
 }
 
 
-
-// Sell the house
+// Sell the car
 Dialog_SellCar(playerid, response, listitem)
 {
 	// Just close the dialog if the player clicked "Cancel"
@@ -1668,7 +1664,7 @@ Dialog_SellCar(playerid, response, listitem)
 		SendClientMessage(playerid, COLOR_WHITE, Msg);
 
 		// Save the player-file (and his houses)
-		PlayerFile_Save(playerid);
+		SavePlayerData(playerid);
 	}
 	else
 	    SendClientMessage(playerid, COLOR_WHITE, TXT_NoVehicleInSlot);
@@ -1832,7 +1828,7 @@ Dialog_CreateBusSelType(playerid, response, listitem)
 	Business_CreateEntrance(BusID);
 
 	// Save the business
-	BusinessFile_Save(BusID);
+	Business_Save(BusID);
 
 	// Inform the player that he created a new house
 	format(Msg, sizeof(Msg), "{00FF00}You've succesfully created business {FF00FF}%i{00FF00}", BusID);
@@ -1933,22 +1929,23 @@ Dialog_GoBusiness(playerid, response, listitem)
 // Let the player change the name of his business
 Dialog_ChangeBusinessName(playerid, response, const inputtext[])
 {
-	// Just close the dialog if the player clicked "Cancel" or if the player didn't input any text
+	// Just close the dialog if the player clicked "Cancel" or no text
 	if ((!response) || (strlen(inputtext) == 0)) return 1;
 
 	// Change the name of the business
 	format(ABusinessData[APlayerData[playerid][CurrentBusiness]][BusinessName], 100, inputtext);
-	// Also update the 3DText at the entrance of the business
+	// Update the 3DText at the entrance of the business
 	Business_UpdateEntrance(APlayerData[playerid][CurrentBusiness]);
-	// Let the player know that the name of his business has been changed
+	// Let the player know the name has been changed
 	SendClientMessage(playerid, COLOR_WHITE, TXT_ChangedBusinessName);
 
-	// Save the player-file (and his houses and businesses)
-	PlayerFile_Save(playerid);
+	// Save to MySQL database
+	SavePlayerData(playerid);
 
 	return 1;
 }
 
+// Sell the business
 // Sell the business
 Dialog_SellBusiness(playerid, response)
 {
@@ -1965,40 +1962,36 @@ Dialog_SellBusiness(playerid, response)
 	// Set the position of the player at the entrance of his business
 	SetPlayerPos(playerid, ABusinessData[BusID][BusinessX], ABusinessData[BusID][BusinessY], ABusinessData[BusID][BusinessZ]);
 
-	// Also clear the tracking-variable to track in which business the player is
+	// Clear the tracking-variable
 	APlayerData[playerid][CurrentBusiness] = 0;
 
 	// Clear the owner of the business
 	ABusinessData[BusID][Owned] = false;
-	ABusinessData[BusID][Owner] = 0;
-	// Clear the house-name and business-level
-	ABusinessData[BusID][BusinessName] = 0;
+	format(ABusinessData[BusID][Owner], 24, "");
+	// Clear the business-name and business-level
+	format(ABusinessData[BusID][BusinessName], 100, "Business");
 	ABusinessData[BusID][BusinessLevel] = 1;
 
 	// Refund the player 50% of the worth of the business
 	RewardPlayer(playerid, (ABusinessInteriors[BusType][BusPrice] * ABusinessData[BusID][BusinessLevel]) / 2, 0);
 	SendClientMessage(playerid, COLOR_WHITE, TXT_PlayerSoldBusiness);
 
-	// Clear the house-id from the player
+	// Clear the business-id from the player
 	for (new i; i < MAX_BUSINESSPERPLAYER; i++)
 	{
-		// If the business-slot if found where the business was added to the player
 		if (APlayerData[playerid][Business][i] == BusID)
 		{
-		    // Clear the business-id
 		    APlayerData[playerid][Business][i] = 0;
-		    // Stop searching
 		    break;
 		}
 	}
 
-	// Update the 3DText near the business's entrance to show other players that it's for sale again
+	// Update the business entrance
 	Business_UpdateEntrance(BusID);
 
-	// Save the player-file (and his houses and businesses)
-	PlayerFile_Save(playerid);
-	// Also save the sold business, otherwise the old ownership-data is still there
-	BusinessFile_Save(BusID);
+	// Save to MySQL database
+	SavePlayerData(playerid);
+	Business_Save(BusID);
 
 	return 1;
 }
@@ -2155,7 +2148,7 @@ Dialog_UnclampVehicles(playerid, response)
 		SendClientMessage(playerid, COLOR_WHITE, Msg);
 
 		// Save the player's profile
-		PlayerFile_Save(playerid);
+		SavePlayerData(playerid);
 	}
 	else
 	    SendClientMessage(playerid, COLOR_RED, "You don't have enough money to unclamp your vehicles");
@@ -2181,7 +2174,7 @@ Dialog_Rules(playerid, response)
 		SendClientMessage(playerid, COLOR_GREEN, "You have earned {FFFF00}$5000{00FF00} for accepting the rules");
 
 		// Save the player's profile
-		PlayerFile_Save(playerid);
+		SavePlayerData(playerid);
 	}
 
 	return 1;
@@ -2583,7 +2576,7 @@ Dialog_BankDeposit(playerid, response, const inputtext[])
 			// Take the money away from yourself
 			APlayerData[playerid][PlayerMoney] = APlayerData[playerid][PlayerMoney] - DepositMoney;
 			// Save the player's account
-			PlayerFile_Save(playerid);
+			SavePlayerData(playerid);
 			// Save the bank account
 			BankFile_Save(playerid);
 			// Inform the player that his money has been deposited
@@ -2636,7 +2629,7 @@ Dialog_BankWithdraw(playerid, response, const inputtext[])
 			// Give the money to yourself
 			APlayerData[playerid][PlayerMoney] = APlayerData[playerid][PlayerMoney] + WithdrawMoney;
 			// Save the player's account
-			PlayerFile_Save(playerid);
+			SavePlayerData(playerid);
 			// Save the bank account
 			BankFile_Save(playerid);
 			// Inform the player that his money has been withdrawn
@@ -2852,7 +2845,7 @@ Dialog_BankCancel(playerid, response)
         SendClientMessage(playerid, COLOR_GREEN, "There was still some money in your bank account, it has been given to your character");
 
     // Save the player's account
-    PlayerFile_Save(playerid);
+    SavePlayerData(playerid);
 
     // Clear the data from the player's account
     APlayerData[playerid][BankPassword] = 0;

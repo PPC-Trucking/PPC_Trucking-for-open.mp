@@ -19,8 +19,6 @@ PlayerFile_Load(playerid)
 
     format(Name, sizeof(Name), APlayerData[playerid][PlayerName]); // Get the playername
 
-
-
     format(file, sizeof(file), PlayerFile, Name); // Construct the complete filename for this player's account
 
     // Check if the player's datafile exists
@@ -61,7 +59,6 @@ PlayerFile_Load(playerid)
         return 0; // Return 0 if the file couldn't be read (doesn't exist)
 }
 
-
 // This function will save all player-data (used when the player disconnects from the server)
 PlayerFile_Save(playerid)
 {
@@ -99,24 +96,24 @@ PlayerFile_Save(playerid)
 
 	fclose(PFile); // Close the file
 
-	// Also save the houses that this player owns
+	// Also save the houses that this player owns - NOW USING MySQL
 	for (new i; i < MAX_HOUSESPERPLAYER; i++)
 	{
 		// Check if there is a valid house-id in this slot
 		if (APlayerData[playerid][Houses][i] != 0)
 		{
-		    // Save the house (and linked vehicles)
-		    HouseFile_Save(APlayerData[playerid][Houses][i]);
+		    // Save the house (and linked vehicles) using MySQL
+		    House_Save(APlayerData[playerid][Houses][i]);
 		}
 	}
-	// Save all the valid business-id's
+	// Save all the valid business-id's - NOW USING MySQL
 	for (new i; i < MAX_BUSINESSPERPLAYER; i++)
 	{
 		// Check if there is a valid business-id in this slot
 		if (APlayerData[playerid][Business][i] != 0)
 		{
-		    // Save the business
-		    BusinessFile_Save(APlayerData[playerid][Business][i]);
+		    // Save the business using MySQL
+		    Business_Save(APlayerData[playerid][Business][i]);
 		}
 	}
 
@@ -126,339 +123,438 @@ PlayerFile_Save(playerid)
 	return 1;
 }
 
-
-// This function loads all houses
+// This function loads all houses from MySQL database
 Housing_LoadAll()
 {
-	// Loop through all houses and try to load them
-	for (new HouseID = 1; HouseID < MAX_HOUSES; HouseID++)
-	{
-	    // Try to load the file and check if it was succesfully loaded (file exists)
-		if (HouseFile_Load(HouseID) == 1)
-		{
-			// Add a pickup and 3DText for this house
-			House_CreateEntrance(HouseID);
-			// Count the amount of houses that are loaded
-		    TotalHouses++;
-		}
-	}
-
-	return 1;
+    new query[256];
+    
+    // Query to load all houses from database
+    mysql_format(Database, query, sizeof(query), "SELECT * FROM `houses` ORDER BY `HouseID` ASC");
+    mysql_tquery(Database, query, "OnHousesLoaded", "");
+    
+    return 1;
 }
 
-// This function will load the house's datafile (used when the server is started to load all houses)
-HouseFile_Load(HouseID, bool:OnlyLoadVehicles = false)
+// Callback when houses are loaded from database
+forward OnHousesLoaded();
+public OnHousesLoaded()
 {
-	new file[100], File:HFile, LineFromFile[100], ParameterName[50], ParameterValue[50];
-	// Setup local variables
-	new cModel, cPaint, components[14], Float:cx, Float:cy, Float:cz, Float:crot, Col1, Col2, vid, bool:VehicleClamped, cFuel = -1, Neons;
-
-	format(file, sizeof(file), HouseFile, HouseID); // Construct the complete filename for this house-file
-
-	if (fexist(file))
-	{
-		HFile = fopen(file, io_read); // Open the housefile for reading
-
-		fread(HFile, LineFromFile); // Read the first line of the file
-
-		// Set the house so it cannot be entered by anyone, except the owner (close the house)
-		AHouseData[HouseID][HouseOpened] = false;
-
-		// Keep reading until the end of the file is found (no more data)
-		while (strlen(LineFromFile) > 0)
-		{
-			StripNewLine(LineFromFile); // Strip any newline characters from the LineFromFile
-			sscanf(LineFromFile, "s[50]s[50]", ParameterName, ParameterValue); // Extract parametername and parametervalue
-
-			// If OnlyLoadVehicles is "false", only load the house-data
-			// If OnlyLoadVehicles is "true", only load the vehicle-data
-			if (OnlyLoadVehicles == false)
-			{
-				// Store the proper value in the proper place
-				if (strcmp(ParameterName, "HouseName", false) == 0) // If the parametername is correct ("HouseName")
-				    format(AHouseData[HouseID][HouseName], 24, ParameterValue); // Store the HouseName
-				if (strcmp(ParameterName, "HouseX", false) == 0) // If the parametername is correct ("HouseX")
-					AHouseData[HouseID][HouseX] = floatstr(ParameterValue); // Store the HouseX
-				if (strcmp(ParameterName, "HouseY", false) == 0) // If the parametername is correct ("HouseY")
-					AHouseData[HouseID][HouseY] = floatstr(ParameterValue); // Store the HouseY
-				if (strcmp(ParameterName, "HouseZ", false) == 0) // If the parametername is correct ("HouseZ")
-					AHouseData[HouseID][HouseZ] = floatstr(ParameterValue); // Store the HouseZ
-				if (strcmp(ParameterName, "HouseLevel", false) == 0) // If the parametername is correct ("HouseLevel")
-					AHouseData[HouseID][HouseLevel] = strval(ParameterValue); // Store the HouseLevel
-				if (strcmp(ParameterName, "HouseMaxLevel", false) == 0) // If the parametername is correct ("HouseMaxLevel")
-					AHouseData[HouseID][HouseMaxLevel] = strval(ParameterValue); // Store the HouseMaxLevel
-				if (strcmp(ParameterName, "HousePrice", false) == 0) // If the parametername is correct ("HousePrice")
-					AHouseData[HouseID][HousePrice] = strval(ParameterValue); // Store the HousePrice
-				if (strcmp(ParameterName, "Owned", false) == 0) // If the parametername is correct ("Owned")
-				{
-				    if (strcmp(ParameterValue, "Yes", false) == 0) // If the value "Yes" was read
-						AHouseData[HouseID][Owned] = true; // House is owned
-					else
-						AHouseData[HouseID][Owned] = false; // House is not owned
-				}
-				if (strcmp(ParameterName, "Owner", false) == 0) // If the parametername is correct ("Owner")
-					// Store the Owner (Owner will hold "1" if there is no owner (empty string), done by "sscanf" I guess)
-					// But this doesn't matter, as the owner will never be displayed when the house is not owned by someone
-				    format(AHouseData[HouseID][Owner], 24, ParameterValue);
-				if (strcmp(ParameterName, "Insurance", false) == 0) // If the parametername is correct ("Insurance")
-					AHouseData[HouseID][Insurance] = strval(ParameterValue); // Store the Insurance
-				if (strcmp(ParameterName, "AutoEvictDays", false) == 0) // If the parametername is correct ("AutoEvictDays")
-					AHouseData[HouseID][AutoEvictDays] = strval(ParameterValue); // Store the AutoEvictDays
-			}
-			else // OnlyLoadVehicles is "true", so only read the vehicle-data
-			{
-				if (strcmp(ParameterName, "[Vehicle]", false) == 0) // If the parametername is correct ("[Vehicle]")
-				{
-				    // Clear all data to start a new vehicle
-				    cModel = 0;
-				    cPaint = 0;
-				    cFuel = -1;
-				    Neons = 0;
-				    for (new i; i < 14; i++)
-				        components[i] = 0;
-				}
-				if (strcmp(ParameterName, "VehicleModel", false) == 0) // If the parametername is correct ("VehicleModel")
-					cModel = strval(ParameterValue); // Store the VehicleModel
-				if (strcmp(ParameterName, "Fuel", false) == 0) // If the parametername is correct ("Fuel")
-					cFuel = strval(ParameterValue); // Store the Fuel
-				if (strcmp(ParameterName, "VehiclePaintJob", false) == 0) // If the parametername is correct ("VehiclePaintJob")
-					cPaint = strval(ParameterValue); // Store the VehiclePaintJob
-				if (strcmp(ParameterName, "VehicleSpoiler", false) == 0) // If the parametername is correct ("VehicleSpoiler")
-					components[0] = strval(ParameterValue); // Store the VehicleSpoiler
-				if (strcmp(ParameterName, "VehicleHood", false) == 0) // If the parametername is correct ("VehicleHood")
-					components[1] = strval(ParameterValue); // Store the VehicleHood
-				if (strcmp(ParameterName, "VehicleRoof", false) == 0) // If the parametername is correct ("VehicleRoof")
-					components[2] = strval(ParameterValue); // Store the VehicleRoof
-				if (strcmp(ParameterName, "VehicleSideSkirt", false) == 0) // If the parametername is correct ("VehicleSideSkirt")
-					components[3] = strval(ParameterValue); // Store the VehicleSideSkirt
-				if (strcmp(ParameterName, "VehicleLamps", false) == 0) // If the parametername is correct ("VehicleLamps")
-					components[4] = strval(ParameterValue); // Store the VehicleLamps
-				if (strcmp(ParameterName, "VehicleNitro", false) == 0) // If the parametername is correct ("VehicleNitro")
-					components[5] = strval(ParameterValue); // Store the VehicleNitro
-				if (strcmp(ParameterName, "VehicleExhaust", false) == 0) // If the parametername is correct ("VehicleExhaust")
-					components[6] = strval(ParameterValue); // Store the VehicleExhaust
-				if (strcmp(ParameterName, "VehicleWheels", false) == 0) // If the parametername is correct ("VehicleWheels")
-					components[7] = strval(ParameterValue); // Store the VehicleWheels
-				if (strcmp(ParameterName, "VehicleStereo", false) == 0) // If the parametername is correct ("VehicleStereo")
-					components[8] = strval(ParameterValue); // Store the VehicleStereo
-				if (strcmp(ParameterName, "VehicleHydraulics", false) == 0) // If the parametername is correct ("VehicleHydraulics")
-					components[9] = strval(ParameterValue); // Store the VehicleHydraulics
-				if (strcmp(ParameterName, "VehicleFrontBumper", false) == 0) // If the parametername is correct ("VehicleFrontBumper")
-					components[10] = strval(ParameterValue); // Store the VehicleFrontBumper
-				if (strcmp(ParameterName, "VehicleRearBumper", false) == 0) // If the parametername is correct ("VehicleRearBumper")
-					components[11] = strval(ParameterValue); // Store the VehicleRearBumper
-				if (strcmp(ParameterName, "VehicleVentRight", false) == 0) // If the parametername is correct ("VehicleVentRight")
-					components[12] = strval(ParameterValue); // Store the VehicleVentRight
-				if (strcmp(ParameterName, "VehicleVentLeft", false) == 0) // If the parametername is correct ("VehicleVentLeft")
-					components[13] = strval(ParameterValue); // Store the VehicleVentLeft
-
-				if (strcmp(ParameterName, "Color1", false) == 0) // If the parametername is correct ("Color1")
-					Col1 = strval(ParameterValue); // Store the Color1
-				if (strcmp(ParameterName, "Color2", false) == 0) // If the parametername is correct ("Color2")
-					Col2 = strval(ParameterValue); // Store the Color2
-
-				if (strcmp(ParameterName, "VehicleX", false) == 0) // If the parametername is correct ("VehicleX")
-					cx = floatstr(ParameterValue); // Store the VehicleX
-				if (strcmp(ParameterName, "VehicleY", false) == 0) // If the parametername is correct ("VehicleY")
-					cy = floatstr(ParameterValue); // Store the VehicleY
-				if (strcmp(ParameterName, "VehicleZ", false) == 0) // If the parametername is correct ("VehicleZ")
-					cz = floatstr(ParameterValue); // Store the VehicleZ
-				if (strcmp(ParameterName, "VehicleAngle", false) == 0) // If the parametername is correct ("VehicleAngle")
-					crot = floatstr(ParameterValue); // Store the VehicleAngle
-				if (strcmp(ParameterName, "NeonsApplied", false) == 0) // If the parametername is correct ("NeonsApplied")
-					Neons = strval(ParameterValue); // Store the NeonsApplied
-
-				if (strcmp(ParameterName, "Clamped", false) == 0) // If the parametername is correct ("Clamped")
-				{
-				    if (strcmp(ParameterValue, "Yes", false) == 0) // If the value "Yes" was read
-						VehicleClamped = true; // Vehicle is clamped
-					else
-						VehicleClamped = false; // Vehicle is not clamped
-				}
-
-				if (strcmp(ParameterName, "[/Vehicle]", false) == 0) // If the parametername is correct ("[/Vehicle]")
-				{
-					// Set both colors to 1 if they are 0 AND if there is a paintjob applied
-					if ((Col1 == 0) && (cPaint != 0))
-					    Col1 = 1;
-					if ((Col2 == 0) && (cPaint != 0))
-					    Col2 = 1;
-
-					// The "[/Vehicle]" is found, this means that all data about this vehicle is now stored in the variables
-					// Now add the vehicle to the house and set it's data
-					vid = House_AddVehicle(HouseID, cModel, cPaint, components, cx, cy, cz, crot, Col1, Col2);
-					AVehicleData[vid][Clamped] = VehicleClamped;
-					// Apply the neons if they have been loaded
-					if (Neons != 0)
-					{
-						AVehicleData[vid][NeonObjectModel] = Neons;
-					    AVehicleData[vid][NeonLeft] = CreateObject(AVehicleData[vid][NeonObjectModel],0,0,0,0,0,0);
-					    AVehicleData[vid][NeonRight] = CreateObject(AVehicleData[vid][NeonObjectModel],0,0,0,0,0,0);
-						AttachObjectToVehicle(AVehicleData[vid][NeonLeft], vid, -0.8, 0.0, -0.70, 0.0, 0.0, 0.0);
-						AttachObjectToVehicle(AVehicleData[vid][NeonRight], vid, 0.8, 0.0, -0.70, 0.0, 0.0, 0.0);
-					}
-					// Also set the fuel (set it to maximum when the fuel parameter wasn't inside the file)
-					if (cFuel == -1)
-						AVehicleData[vid][Fuel] = MaxFuel;
-					else // If the parameter was there, store it
-						AVehicleData[vid][Fuel] = cFuel;
-				}
-			}
-
-            // Read the next line of the file
-			fread(HFile, LineFromFile);
-		}
-
-		// Check if the maximum house-level isn't 0 (when updating to the new version)
-		if (AHouseData[HouseID][HouseMaxLevel] == 0)
-		    AHouseData[HouseID][HouseMaxLevel] = 10; // Set the maximum level to 10
-
-        // Close the file
-		fclose(HFile);
-
-        // Return if the file was read correctly
-		return 1;
-	}
-	else
-	    return 0; // Return 0 if the file couldn't be read (doesn't exist)
+    new rows = cache_num_rows();
+    
+    if (rows > 0)
+    {
+        for (new i = 0; i < rows; i++)
+        {
+            new HouseID;
+            cache_get_value_name_int(i, "HouseID", HouseID);
+            
+            // Load house data from database row
+            cache_get_value_name(i, "HouseName", AHouseData[HouseID][HouseName], 100);
+            cache_get_value_name_float(i, "HouseX", AHouseData[HouseID][HouseX]);
+            cache_get_value_name_float(i, "HouseY", AHouseData[HouseID][HouseY]);
+            cache_get_value_name_float(i, "HouseZ", AHouseData[HouseID][HouseZ]);
+            cache_get_value_name_int(i, "HouseLevel", AHouseData[HouseID][HouseLevel]);
+            cache_get_value_name_int(i, "HouseMaxLevel", AHouseData[HouseID][HouseMaxLevel]);
+            cache_get_value_name_int(i, "HousePrice", AHouseData[HouseID][HousePrice]);
+            cache_get_value_name_int(i, "Owned", AHouseData[HouseID][Owned]);
+            cache_get_value_name(i, "Owner", AHouseData[HouseID][Owner], 24);
+            cache_get_value_name_int(i, "Insurance", AHouseData[HouseID][Insurance]);
+            cache_get_value_name_int(i, "AutoEvictDays", AHouseData[HouseID][AutoEvictDays]);
+            
+            // Set defaults if not set
+            if (AHouseData[HouseID][HouseMaxLevel] == 0)
+                AHouseData[HouseID][HouseMaxLevel] = 10;
+            
+            // Set house as closed by default
+            AHouseData[HouseID][HouseOpened] = false;
+            
+            // Create entrance pickup and 3D text
+            House_CreateEntrance(HouseID);
+            
+            // Load vehicles for this house
+            House_LoadVehicles(HouseID);
+            
+            // Count loaded houses
+            TotalHouses++;
+        }
+        
+        printf("Loaded %d houses from MySQL database", rows);
+    }
+    else
+    {
+        printf("No houses found in database");
+    }
+    
+    return 1;
 }
 
-// This function will save the given house
-HouseFile_Save(HouseID)
+// This function loads a single house from MySQL database
+House_Load(HouseID)
 {
-	new file[100], File:HFile, LineForFile[100], vid;
-
-    // Construct the complete filename for this house
-	format(file, sizeof(file), HouseFile, HouseID);
-
-	HFile = fopen(file, io_write); // Open the playerfile for writing
-
-	format(LineForFile, sizeof(LineForFile), "HouseName %s\r\n", AHouseData[HouseID][HouseName]); // Construct the line: "HouseName <HouseName>"
-	fwrite(HFile, LineForFile); // And save it to the file
-
-	format(LineForFile, sizeof(LineForFile), "HouseX %f\r\n", AHouseData[HouseID][HouseX]); // Construct the line: "HouseX <HouseX>"
-	fwrite(HFile, LineForFile); // And save it to the file
-
-	format(LineForFile, sizeof(LineForFile), "HouseY %f\r\n", AHouseData[HouseID][HouseY]); // Construct the line: "HouseY <HouseY>"
-	fwrite(HFile, LineForFile); // And save it to the file
-
-	format(LineForFile, sizeof(LineForFile), "HouseZ %f\r\n", AHouseData[HouseID][HouseZ]); // Construct the line: "HouseZ <HouseZ>"
-	fwrite(HFile, LineForFile); // And save it to the file
-
-	format(LineForFile, sizeof(LineForFile), "HouseLevel %i\r\n", AHouseData[HouseID][HouseLevel]); // Construct the line: "HouseLevel <HouseLevel>"
-	fwrite(HFile, LineForFile); // And save it to the file
-
-	format(LineForFile, sizeof(LineForFile), "HouseMaxLevel %i\r\n", AHouseData[HouseID][HouseMaxLevel]); // Construct the line: "HouseMaxLevel <HouseMaxLevel>"
-	fwrite(HFile, LineForFile); // And save it to the file
-
-	format(LineForFile, sizeof(LineForFile), "HousePrice %i\r\n", AHouseData[HouseID][HousePrice]); // Construct the line: "HousePrice <HousePrice>"
-	fwrite(HFile, LineForFile); // And save it to the file
-
-	if (AHouseData[HouseID][Owned] == true) // Check if the house is owned
-	{
-		format(LineForFile, sizeof(LineForFile), "Owned Yes\r\n"); // Construct the line: "Owned Yes"
-		fwrite(HFile, LineForFile); // And save it to the file
-	}
-	else
-	{
-		format(LineForFile, sizeof(LineForFile), "Owned No\r\n"); // Construct the line: "Owned No"
-		fwrite(HFile, LineForFile); // And save it to the file
-	}
-
-	format(LineForFile, sizeof(LineForFile), "Owner %s\r\n", AHouseData[HouseID][Owner]); // Construct the line: "Owner <Owner>"
-	fwrite(HFile, LineForFile); // And save it to the file
-
-	format(LineForFile, sizeof(LineForFile), "Insurance %i\r\n", AHouseData[HouseID][Insurance]); // Construct the line: "Insurance <Insurance>"
-	fwrite(HFile, LineForFile); // And save it to the file
-
-	AHouseData[HouseID][AutoEvictDays] = AutoEvict[AEDays]; // Update the AutoEvictDays for this house when the player logs out
-	format(LineForFile, sizeof(LineForFile), "AutoEvictDays %i\r\n", AutoEvict[AEDays]); // Construct the line: "AutoEvictDays <AutoEvictDays>"
-	fwrite(HFile, LineForFile); // And save it to the file
-
-
-
-	// Save the vehicle-data for every vehicle added to the house
-	for (new CarSlot; CarSlot < 10; CarSlot++)
-	{
-	    // If a valid vehicle-id has been found
-		if (AHouseData[HouseID][VehicleIDs][CarSlot] != 0)
-		{
-			// Get the vehicle id
-			vid = AHouseData[HouseID][VehicleIDs][CarSlot];
-
-		    format(LineForFile, sizeof(LineForFile), "[Vehicle]\r\n"); // Construct the line: "[Vehicle]"
-			fwrite(HFile, LineForFile); // And save it to the file
-
-		    format(LineForFile, sizeof(LineForFile), "VehicleModel %i\r\n", AVehicleData[vid][Model]); // Construct the line: "VehicleModel <VehicleModel>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "Fuel %i\r\n", AVehicleData[vid][Fuel]); // Construct the line: "Fuel <Fuel>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehiclePaintJob %i\r\n", AVehicleData[vid][PaintJob]); // Construct the line: "VehiclePaintJob <VehiclePaintJob>"
-			fwrite(HFile, LineForFile); // And save it to the file
-
-		    format(LineForFile, sizeof(LineForFile), "VehicleSpoiler %i\r\n", AVehicleData[vid][Components][0]); // Construct the line: "VehicleSpoiler <VehicleSpoiler>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleHood %i\r\n", AVehicleData[vid][Components][1]); // Construct the line: "VehicleHood <VehicleHood>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleRoof %i\r\n", AVehicleData[vid][Components][2]); // Construct the line: "VehicleRoof <VehicleRoof>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleSideSkirt %i\r\n", AVehicleData[vid][Components][3]); // Construct the line: "VehicleSideSkirt <VehicleSideSkirt>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleLamps %i\r\n", AVehicleData[vid][Components][4]); // Construct the line: "VehicleLamps <VehicleLamps>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleNitro %i\r\n", AVehicleData[vid][Components][5]); // Construct the line: "VehicleNitro <VehicleNitro>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleExhaust %i\r\n", AVehicleData[vid][Components][6]); // Construct the line: "VehicleSpoiler <VehicleSpoiler>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleWheels %i\r\n", AVehicleData[vid][Components][7]); // Construct the line: "VehicleWheels <VehicleWheels>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleStereo %i\r\n", AVehicleData[vid][Components][8]); // Construct the line: "VehicleStereo <VehicleStereo>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleHydraulics %i\r\n", AVehicleData[vid][Components][9]); // Construct the line: "VehicleHydraulics <VehicleHydraulics>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleFrontBumper %i\r\n", AVehicleData[vid][Components][10]); // Construct the line: "VehicleFrontBumper <VehicleFrontBumper>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleRearBumper %i\r\n", AVehicleData[vid][Components][11]); // Construct the line: "VehicleRearBumper <VehicleRearBumper>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleVentRight %i\r\n", AVehicleData[vid][Components][12]); // Construct the line: "VehicleVentRight <VehicleVentRight>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleVentLeft %i\r\n", AVehicleData[vid][Components][13]); // Construct the line: "VehicleVentLeft <VehicleVentLeft>"
-			fwrite(HFile, LineForFile); // And save it to the file
-
-		    format(LineForFile, sizeof(LineForFile), "Color1 %i\r\n", AVehicleData[vid][Color1]); // Construct the line: "Color1 <Color1>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "Color2 %i\r\n", AVehicleData[vid][Color2]); // Construct the line: "Color2 <Color2>"
-			fwrite(HFile, LineForFile); // And save it to the file
-
-		    format(LineForFile, sizeof(LineForFile), "VehicleX %f\r\n", AVehicleData[vid][SpawnX]); // Construct the line: "VehicleVentLeft <VehicleVentLeft>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleY %f\r\n", AVehicleData[vid][SpawnY]); // Construct the line: "VehicleVentLeft <VehicleVentLeft>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleZ %f\r\n", AVehicleData[vid][SpawnZ]); // Construct the line: "VehicleVentLeft <VehicleVentLeft>"
-			fwrite(HFile, LineForFile); // And save it to the file
-		    format(LineForFile, sizeof(LineForFile), "VehicleAngle %f\r\n", AVehicleData[vid][SpawnRot]); // Construct the line: "VehicleVentLeft <VehicleVentLeft>"
-			fwrite(HFile, LineForFile); // And save it to the file
-			format(LineForFile, sizeof(LineForFile), "NeonsApplied %i\r\n", AVehicleData[vid][NeonObjectModel]); // Construct the line: "NeonsApplied <NeonsApplied>"
-			fwrite(HFile, LineForFile); // And save it to the file
-			
-			if (AVehicleData[vid][Clamped] == true)
-			    format(LineForFile, sizeof(LineForFile), "Clamped Yes\r\n"); // Construct the line: "Clamped <Yes>"
-			else
-			    format(LineForFile, sizeof(LineForFile), "Clamped No\r\n"); // Construct the line: "Clamped <No>"
-
-			fwrite(HFile, LineForFile); // And save it to the file
-
-		    format(LineForFile, sizeof(LineForFile), "[/Vehicle]\r\n"); // Construct the line: "[/Vehicle]"
-			fwrite(HFile, LineForFile); // And save it to the file
-		}
-	}
-
-	fclose(HFile); // Close the file
-
-	return 1;
+    new query[256];
+    
+    // Query to load specific house
+    mysql_format(Database, query, sizeof(query), "SELECT * FROM `houses` WHERE `HouseID` = %d LIMIT 1", HouseID);
+    new Cache:result = mysql_query(Database, query);
+    
+    if (cache_num_rows() > 0)
+    {
+        // Load house data from database
+        cache_get_value_name(0, "HouseName", AHouseData[HouseID][HouseName], 100);
+        cache_get_value_name_float(0, "HouseX", AHouseData[HouseID][HouseX]);
+        cache_get_value_name_float(0, "HouseY", AHouseData[HouseID][HouseY]);
+        cache_get_value_name_float(0, "HouseZ", AHouseData[HouseID][HouseZ]);
+        cache_get_value_name_int(0, "HouseLevel", AHouseData[HouseID][HouseLevel]);
+        cache_get_value_name_int(0, "HouseMaxLevel", AHouseData[HouseID][HouseMaxLevel]);
+        cache_get_value_name_int(0, "HousePrice", AHouseData[HouseID][HousePrice]);
+        cache_get_value_name_int(0, "Owned", AHouseData[HouseID][Owned]);
+        cache_get_value_name(0, "Owner", AHouseData[HouseID][Owner], 24);
+        cache_get_value_name_int(0, "Insurance", AHouseData[HouseID][Insurance]);
+        cache_get_value_name_int(0, "AutoEvictDays", AHouseData[HouseID][AutoEvictDays]);
+        
+        // Set defaults
+        if (AHouseData[HouseID][HouseMaxLevel] == 0)
+            AHouseData[HouseID][HouseMaxLevel] = 10;
+        
+        AHouseData[HouseID][HouseOpened] = false;
+        
+        cache_delete(result);
+        
+        // Load vehicles for this house
+        House_LoadVehicles(HouseID);
+        
+        return 1;
+    }
+    
+    cache_delete(result);
+    return 0;
 }
 
+// This function saves a house to MySQL database
+House_Save(HouseID)
+{
+    new query[512];
+    
+    // Check if house exists in database
+    mysql_format(Database, query, sizeof(query), "SELECT `HouseID` FROM `houses` WHERE `HouseID` = %d LIMIT 1", HouseID);
+    new Cache:result = mysql_query(Database, query);
+    
+    if (cache_num_rows() > 0)
+    {
+        // Update existing house
+        cache_delete(result);
+        mysql_format(Database, query, sizeof(query), 
+            "UPDATE `houses` SET `HouseName` = '%e', `HouseX` = %f, `HouseY` = %f, `HouseZ` = %f, `HouseLevel` = %d, `HouseMaxLevel` = %d, `HousePrice` = %d, `Owned` = %d, `Owner` = '%e', `Insurance` = %d, `AutoEvictDays` = %d, `LastAccess` = NOW() WHERE `HouseID` = %d",
+            AHouseData[HouseID][HouseName],
+            AHouseData[HouseID][HouseX],
+            AHouseData[HouseID][HouseY],
+            AHouseData[HouseID][HouseZ],
+            AHouseData[HouseID][HouseLevel],
+            AHouseData[HouseID][HouseMaxLevel],
+            AHouseData[HouseID][HousePrice],
+            AHouseData[HouseID][Owned],
+            AHouseData[HouseID][Owner],
+            AHouseData[HouseID][Insurance],
+            AHouseData[HouseID][AutoEvictDays],
+            HouseID
+        );
+    }
+    else
+    {
+        // Insert new house
+        cache_delete(result);
+        mysql_format(Database, query, sizeof(query), 
+            "INSERT INTO `houses` (`HouseID`, `HouseName`, `HouseX`, `HouseY`, `HouseZ`, `HouseLevel`, `HouseMaxLevel`, `HousePrice`, `Owned`, `Owner`, `Insurance`, `AutoEvictDays`) VALUES (%d, '%e', %f, %f, %f, %d, %d, %d, %d, '%e', %d, %d)",
+            HouseID,
+            AHouseData[HouseID][HouseName],
+            AHouseData[HouseID][HouseX],
+            AHouseData[HouseID][HouseY],
+            AHouseData[HouseID][HouseZ],
+            AHouseData[HouseID][HouseLevel],
+            AHouseData[HouseID][HouseMaxLevel],
+            AHouseData[HouseID][HousePrice],
+            AHouseData[HouseID][Owned],
+            AHouseData[HouseID][Owner],
+            AHouseData[HouseID][Insurance],
+            AHouseData[HouseID][AutoEvictDays]
+        );
+    }
+    
+    mysql_query(Database, query);
+    
+    if (CheckMySQLError("House_Save"))
+        return 0;
+    
+    // Also save vehicles for this house
+    House_SaveVehicles(HouseID);
+    
+    return 1;
+}
 
+// This function creates a new house in the database
+House_Create(Float:x, Float:y, Float:z, Price, MaxLevel = 10)
+{
+    new query[256];
+    
+    // Insert new house into database
+    mysql_format(Database, query, sizeof(query), 
+        "INSERT INTO `houses` (`HouseName`, `HouseX`, `HouseY`, `HouseZ`, `HouseLevel`, `HouseMaxLevel`, `HousePrice`, `Owned`, `Owner`, `Insurance`, `AutoEvictDays`) VALUES ('House', %f, %f, %f, 1, %d, %d, 0, '', 0, 0)",
+        x, y, z, MaxLevel, Price
+    );
+    
+    mysql_tquery(Database, query, "OnHouseCreated", "fffi", x, y, z, Price);
+    
+    return 1;
+}
+
+// Callback when house is created
+forward OnHouseCreated(Float:x, Float:y, Float:z, Price);
+public OnHouseCreated(Float:x, Float:y, Float:z, Price)
+{
+    new HouseID = cache_insert_id();
+    
+    if (HouseID > 0)
+    {
+        // Initialize house data
+        format(AHouseData[HouseID][HouseName], 100, "House");
+        AHouseData[HouseID][HouseX] = x;
+        AHouseData[HouseID][HouseY] = y;
+        AHouseData[HouseID][HouseZ] = z;
+        AHouseData[HouseID][HouseLevel] = 1;
+        AHouseData[HouseID][HouseMaxLevel] = 10;
+        AHouseData[HouseID][HousePrice] = Price;
+        AHouseData[HouseID][Owned] = false;
+        format(AHouseData[HouseID][Owner], 24, "");
+        AHouseData[HouseID][Insurance] = 0;
+        AHouseData[HouseID][AutoEvictDays] = 0;
+        AHouseData[HouseID][HouseOpened] = false;
+        
+        // Clear vehicle slots
+        for (new i = 0; i < 10; i++)
+            AHouseData[HouseID][VehicleIDs][i] = 0;
+        
+        // Create entrance
+        House_CreateEntrance(HouseID);
+        
+        printf("House %d created at position %.2f, %.2f, %.2f with price $%d", HouseID, x, y, z, Price);
+        return HouseID;
+    }
+    
+    return 0;
+}
+
+// This function deletes a house from the database
+House_Delete(HouseID)
+{
+    new query[128];
+    
+    // First delete all vehicles associated with this house
+    mysql_format(Database, query, sizeof(query), "DELETE FROM `house_vehicles` WHERE `HouseID` = %d", HouseID);
+    mysql_query(Database, query);
+    
+    // Delete the house
+    mysql_format(Database, query, sizeof(query), "DELETE FROM `houses` WHERE `HouseID` = %d", HouseID);
+    mysql_query(Database, query);
+    
+    if (CheckMySQLError("House_Delete"))
+        return 0;
+    
+    // Clear house data from memory
+    format(AHouseData[HouseID][HouseName], 100, "");
+    AHouseData[HouseID][HouseX] = 0.0;
+    AHouseData[HouseID][HouseY] = 0.0;
+    AHouseData[HouseID][HouseZ] = 0.0;
+    AHouseData[HouseID][HouseLevel] = 0;
+    AHouseData[HouseID][HouseMaxLevel] = 0;
+    AHouseData[HouseID][HousePrice] = 0;
+    AHouseData[HouseID][Owned] = false;
+    format(AHouseData[HouseID][Owner], 24, "");
+    AHouseData[HouseID][Insurance] = 0;
+    AHouseData[HouseID][AutoEvictDays] = 0;
+    
+    // Destroy pickups and 3D text
+    if (IsValidDynamicPickup(AHouseData[HouseID][PickupID]))
+        DestroyDynamicPickup(AHouseData[HouseID][PickupID]);
+    if (IsValidDynamic3DTextLabel(AHouseData[HouseID][DoorText]))
+        DestroyDynamic3DTextLabel(AHouseData[HouseID][DoorText]);
+    if (IsValidDynamicMapIcon(AHouseData[HouseID][MapIconID]))
+        DestroyDynamicMapIcon(AHouseData[HouseID][MapIconID]);
+    
+    // Clear vehicle slots
+    for (new i = 0; i < 10; i++)
+    {
+        if (AHouseData[HouseID][VehicleIDs][i] != 0)
+        {
+            DestroyVehicle(AHouseData[HouseID][VehicleIDs][i]);
+            AHouseData[HouseID][VehicleIDs][i] = 0;
+        }
+    }
+    
+    printf("House %d deleted from database", HouseID);
+    return 1;
+}
+
+// Load vehicles for a specific house
+House_LoadVehicles(HouseID)
+{
+    new query[256];
+    
+    mysql_format(Database, query, sizeof(query), "SELECT * FROM `house_vehicles` WHERE `HouseID` = %d ORDER BY `CarSlot` ASC", HouseID);
+    mysql_tquery(Database, query, "OnHouseVehiclesLoaded", "i", HouseID);
+    
+    return 1;
+}
+
+// Callback when house vehicles are loaded
+forward OnHouseVehiclesLoaded(HouseID);
+public OnHouseVehiclesLoaded(HouseID)
+{
+    new rows = cache_num_rows();
+    
+    if (rows > 0)
+    {
+        for (new i = 0; i < rows; i++)
+        {
+            new CarSlot, VehicleModel, Color1, Color2, Fuel, VehiclePaintJob, NeonsApplied, Clamped;
+            new Float:VehicleX, Float:VehicleY, Float:VehicleZ, Float:VehicleAngle;
+            new components[14];
+            
+            cache_get_value_name_int(i, "CarSlot", CarSlot);
+            cache_get_value_name_int(i, "VehicleModel", VehicleModel);
+            cache_get_value_name_int(i, "Color1", Color1);
+            cache_get_value_name_int(i, "Color2", Color2);
+            cache_get_value_name_int(i, "Fuel", Fuel);
+            cache_get_value_name_int(i, "VehiclePaintJob", VehiclePaintJob);
+            cache_get_value_name_int(i, "NeonsApplied", NeonsApplied);
+            cache_get_value_name_int(i, "Clamped", Clamped);
+            cache_get_value_name_float(i, "VehicleX", VehicleX);
+            cache_get_value_name_float(i, "VehicleY", VehicleY);
+            cache_get_value_name_float(i, "VehicleZ", VehicleZ);
+            cache_get_value_name_float(i, "VehicleAngle", VehicleAngle);
+            
+            // Load components
+            cache_get_value_name_int(i, "VehicleSpoiler", components[0]);
+            cache_get_value_name_int(i, "VehicleHood", components[1]);
+            cache_get_value_name_int(i, "VehicleRoof", components[2]);
+            cache_get_value_name_int(i, "VehicleSideSkirt", components[3]);
+            cache_get_value_name_int(i, "VehicleLamps", components[4]);
+            cache_get_value_name_int(i, "VehicleNitro", components[5]);
+            cache_get_value_name_int(i, "VehicleExhaust", components[6]);
+            cache_get_value_name_int(i, "VehicleWheels", components[7]);
+            cache_get_value_name_int(i, "VehicleStereo", components[8]);
+            cache_get_value_name_int(i, "VehicleHydraulics", components[9]);
+            cache_get_value_name_int(i, "VehicleFrontBumper", components[10]);
+            cache_get_value_name_int(i, "VehicleRearBumper", components[11]);
+            cache_get_value_name_int(i, "VehicleVentRight", components[12]);
+            cache_get_value_name_int(i, "VehicleVentLeft", components[13]);
+            
+            // Create the vehicle if valid slot
+            if (CarSlot >= 0 && CarSlot < 10)
+            {
+                House_AddVehicle(HouseID, VehicleModel, VehiclePaintJob, components, VehicleX, VehicleY, VehicleZ, VehicleAngle, Color1, Color2);
+                
+                // Set additional vehicle data
+                new vid = AHouseData[HouseID][VehicleIDs][CarSlot];
+                if (vid != 0)
+                {
+                    AVehicleData[vid][Fuel] = Fuel;
+                    AVehicleData[vid][Clamped] = Clamped;
+                    // Apply neons if needed
+                    if (NeonsApplied != 0)
+                    {
+                        // Apply neon components based on NeonsApplied value
+                        // This would need to be implemented based on your neon system
+                    }
+                }
+            }
+        }
+    }
+    
+    return 1;
+}
+
+// Save all vehicles for a specific house
+House_SaveVehicles(HouseID)
+{
+    new query[512];
+    
+    // First delete all existing vehicles for this house
+    mysql_format(Database, query, sizeof(query), "DELETE FROM `house_vehicles` WHERE `HouseID` = %d", HouseID);
+    mysql_query(Database, query);
+    
+    // Save current vehicles
+    for (new CarSlot = 0; CarSlot < 10; CarSlot++)
+    {
+        new vid = AHouseData[HouseID][VehicleIDs][CarSlot];
+        
+        if (vid != 0)
+        {
+            new Float:vx, Float:vy, Float:vz, Float:vrot;
+            GetVehiclePos(vid, vx, vy, vz);
+            GetVehicleZAngle(vid, vrot);
+            
+            mysql_format(Database, query, sizeof(query), 
+                "INSERT INTO `house_vehicles` (`HouseID`, `CarSlot`, `VehicleModel`, `Fuel`, `VehiclePaintJob`, `VehicleSpoiler`, `VehicleHood`, `VehicleRoof`, `VehicleSideSkirt`, `VehicleLamps`, `VehicleNitro`, `VehicleExhaust`, `VehicleWheels`, `VehicleStereo`, `VehicleHydraulics`, `VehicleFrontBumper`, `VehicleRearBumper`, `VehicleVentRight`, `VehicleVentLeft`, `Color1`, `Color2`, `VehicleX`, `VehicleY`, `VehicleZ`, `VehicleAngle`, `NeonsApplied`, `Clamped`) VALUES (%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %f, %f, %f, %f, %d, %d)",
+                HouseID, CarSlot, AVehicleData[vid][Model], AVehicleData[vid][Fuel], AVehicleData[vid][PaintJob],
+                AVehicleData[vid][Components][0], AVehicleData[vid][Components][1], AVehicleData[vid][Components][2],
+                AVehicleData[vid][Components][3], AVehicleData[vid][Components][4], AVehicleData[vid][Components][5],
+                AVehicleData[vid][Components][6], AVehicleData[vid][Components][7], AVehicleData[vid][Components][8],
+                AVehicleData[vid][Components][9], AVehicleData[vid][Components][10], AVehicleData[vid][Components][11],
+                AVehicleData[vid][Components][12], AVehicleData[vid][Components][13], AVehicleData[vid][Color1],
+                AVehicleData[vid][Color2], vx, vy, vz, vrot, 0, AVehicleData[vid][Clamped]
+            );
+            
+            mysql_query(Database, query);
+            
+            if (CheckMySQLError("House_SaveVehicles"))
+                continue;
+        }
+    }
+    
+    return 1;
+}
+
+// Load player's houses from MySQL database
+PlayerHouses_Load(playerid)
+{
+    new Name[24], query[256];
+    GetPlayerName(playerid, Name, sizeof(Name));
+    
+    // Clear current house slots
+    for (new i = 0; i < MAX_HOUSESPERPLAYER; i++)
+        APlayerData[playerid][Houses][i] = 0;
+    
+    // Load player's houses from database
+    mysql_format(Database, query, sizeof(query), "SELECT `HouseID` FROM `houses` WHERE `Owner` = '%e' ORDER BY `HouseID` ASC", Name);
+    mysql_tquery(Database, query, "OnPlayerHousesLoaded", "i", playerid);
+    
+    return 1;
+}
+
+// Callback for loading player houses
+forward OnPlayerHousesLoaded(playerid);
+public OnPlayerHousesLoaded(playerid)
+{
+    new rows = cache_num_rows();
+    new HouseIndex = 0;
+    
+    if (rows > 0)
+    {
+        for (new i = 0; i < rows && HouseIndex < MAX_HOUSESPERPLAYER; i++)
+        {
+            new HouseID;
+            cache_get_value_name_int(i, "HouseID", HouseID);
+            
+            // Store house ID in player's house array
+            APlayerData[playerid][Houses][HouseIndex] = HouseID;
+            HouseIndex++;
+        }
+        
+        printf("Loaded %d houses for player %s", rows, APlayerData[playerid][PlayerName]);
+    }
+    
+    return 1;
+}
 
 // This function loads all speedcameras
 Camera_LoadAll()
@@ -512,442 +608,444 @@ CameraFile_Save(CamID, const createdBy[] = "")
         ACameras[CamID][CamZ],
         ACameras[CamID][CamAngle],
         ACameras[CamID][CamSpeed],
-        createdBy
-    );
-    
-    mysql_query(Database, query);
-    
-    if (CheckMySQLError("CameraFile_Save"))
-        return 0;
-    
-    return 1;
+createdBy
+   );
+   
+   mysql_query(Database, query);
+   
+   if (CheckMySQLError("CameraFile_Save"))
+       return 0;
+   
+   return 1;
 }
 
 // This function deletes a camera from the database
 CameraFile_Delete(CamID)
 {
-    new query[128];
-    
-    // Delete camera from database (CamID+1 because database IDs start from 1)
-    mysql_format(Database, query, sizeof(query), "DELETE FROM `cameras` WHERE `CameraID` = %d", CamID + 1);
-    mysql_query(Database, query);
-    
-    if (CheckMySQLError("CameraFile_Delete"))
-        return 0;
-    
-    return 1;
+   new query[128];
+   
+   // Delete camera from database (CamID+1 because database IDs start from 1)
+   mysql_format(Database, query, sizeof(query), "DELETE FROM `cameras` WHERE `CameraID` = %d", CamID + 1);
+   mysql_query(Database, query);
+   
+   if (CheckMySQLError("CameraFile_Delete"))
+       return 0;
+   
+   return 1;
 }
 
 // This function gets the next available camera slot
 GetNextCameraSlot()
 {
-    for (new CamID = 0; CamID < MAX_CAMERAS; CamID++)
-    {
-        if (ACameras[CamID][CamSpeed] == 0) // Empty slot
-            return CamID;
-    }
-    return -1; // No free slots
+   for (new CamID = 0; CamID < MAX_CAMERAS; CamID++)
+   {
+       if (ACameras[CamID][CamSpeed] == 0) // Empty slot
+           return CamID;
+   }
+   return -1; // No free slots
 }
 
-
-// This function loads all businesses
+// This function loads all businesses from MySQL database
 Business_LoadAll()
 {
-	// First load the business-time file, this one holds the current business-time which is increased every minute the server if online
-	BusinessTime_Load();
+   // First load the business-time
+   BusinessTime_Load();
 
-	// Loop through all businesses and try to load them
-	for (new BusID = 1; BusID < MAX_BUSINESS; BusID++)
-	{
-	    // Try to load the file and check if it was succesfully loaded (file exists)
-		if (BusinessFile_Load(BusID) == 1)
-		{
-			// Add a pickup and 3DText for this business
-			Business_CreateEntrance(BusID);
-			// Count the loaded businesses
-		    TotalBusiness++;
-		}
-	}
-
-	return 1;
+   // Query to load all businesses from database
+   new query[256];
+   mysql_format(Database, query, sizeof(query), "SELECT * FROM `businesses` ORDER BY `BusinessID` ASC");
+   mysql_tquery(Database, query, "OnBusinessesLoaded", "");
+   
+   return 1;
 }
 
-// This function loads the file that holds the current business-time
+// Callback when businesses are loaded from database
+forward OnBusinessesLoaded();
+public OnBusinessesLoaded()
+{
+   new rows = cache_num_rows();
+   
+   if (rows > 0)
+   {
+   	for (new i = 0; i < rows; i++)
+   	{
+   		new BusinessID;
+   		cache_get_value_name_int(i, "BusinessID", BusinessID);
+   		
+   		// Load business data from database row
+   		cache_get_value_name(i, "BusinessName", ABusinessData[BusinessID][BusinessName], 100);
+   		cache_get_value_name_float(i, "BusinessX", ABusinessData[BusinessID][BusinessX]);
+   		cache_get_value_name_float(i, "BusinessY", ABusinessData[BusinessID][BusinessY]);
+   		cache_get_value_name_float(i, "BusinessZ", ABusinessData[BusinessID][BusinessZ]);
+   		cache_get_value_name_int(i, "BusinessType", ABusinessData[BusinessID][BusinessType]);
+   		cache_get_value_name_int(i, "BusinessLevel", ABusinessData[BusinessID][BusinessLevel]);
+   		cache_get_value_name_int(i, "LastTransaction", ABusinessData[BusinessID][LastTransaction]);
+   		cache_get_value_name_int(i, "Owned", ABusinessData[BusinessID][Owned]);
+   		cache_get_value_name(i, "Owner", ABusinessData[BusinessID][Owner], 24);
+   		cache_get_value_name_int(i, "AutoEvictDays", ABusinessData[BusinessID][AutoEvictDays]);
+   		
+   		// Add a pickup and 3DText for this business
+   		Business_CreateEntrance(BusinessID);
+   		// Count the loaded businesses
+   		TotalBusiness++;
+   	}
+   	
+   	printf("Loaded %d businesses from MySQL database", rows);
+   }
+   else
+   {
+   	printf("No businesses found in database");
+   }
+   
+   return 1;
+}
+
+// This function loads the current business-time from MySQL database
 BusinessTime_Load()
 {
-	// Setup local variables
-	new File:BFile, LineFromFile[100], ParameterName[50], ParameterValue[50];
-
-	// Try to load the businesstime file
-	if (fexist("ServerData/Business/BusinessTime.ini"))
-	{
-		BFile = fopen("ServerData/Business/BusinessTime.ini", io_read); // Open the businesstime-file for reading
-
-		fread(BFile, LineFromFile); // Read the first line of the file
-
-		// Keep reading until the end of the file is found (no more data)
-		while (strlen(LineFromFile) > 0)
-		{
-			StripNewLine(LineFromFile); // Strip any newline characters from the LineFromFile
-			sscanf(LineFromFile, "s[50]s[50]", ParameterName, ParameterValue); // Extract parametername and parametervalue
-
-			// Store the proper value in the proper place
-			if (strcmp(ParameterName, "BusinessTime", false) == 0) // If the parametername is correct ("BusinessTime")
-				BusinessTransactionTime = strval(ParameterValue); // Store the BusinessTime
-
-            // Read the next line of the file
-			fread(BFile, LineFromFile);
-		}
-
-        // Close the file
-		fclose(BFile);
-
-        // Return if the file was read correctly
-		return 1;
-	}
-	else
-	    return 0; // Return 0 if the file couldn't be read (doesn't exist)
+   new query[128];
+   
+   mysql_format(Database, query, sizeof(query), 
+   	"SELECT `setting_value` FROM `settings` WHERE `setting_name` = 'BusinessTransactionTime' LIMIT 1");
+   new Cache:result = mysql_query(Database, query);
+   
+   if (cache_num_rows() > 0)
+   {
+   	cache_get_value_name_int(0, "setting_value", BusinessTransactionTime);
+   	cache_delete(result);
+   	return 1;
+   }
+   else
+   {
+   	// Create default entry if not found
+   	mysql_format(Database, query, sizeof(query), 
+   		"INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('BusinessTransactionTime', '0')");
+   	mysql_query(Database, query);
+   	BusinessTransactionTime = 0;
+   	cache_delete(result);
+   	return 0;
+   }
 }
 
-// This function saves the file that holds the current business-time
+// This function saves the current business-time to MySQL database
 BusinessTime_Save()
 {
-	new File:BFile, LineForFile[100];
-
-	BFile = fopen("ServerData/Business/BusinessTime.ini", io_write); // Open the businesstime-file for writing
-
-	format(LineForFile, sizeof(LineForFile), "BusinessTime %i\r\n", BusinessTransactionTime); // Construct the line: "BusinessTime <BusinessTransactionTime>"
-	fwrite(BFile, LineForFile); // And save it to the file
-
-	fclose(BFile); // Close the file
-
-	return 1;
+   new query[128];
+   
+   mysql_format(Database, query, sizeof(query), 
+   	"INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('BusinessTransactionTime', '%d') ON DUPLICATE KEY UPDATE `setting_value` = '%d'",
+   	BusinessTransactionTime, BusinessTransactionTime);
+   mysql_query(Database, query);
+   
+   return 1;
 }
 
-
-
-// This function will load the business's datafile (used when the server is started to load all businesses)
-BusinessFile_Load(BusID)
+// This function will save the given business to MySQL database
+Business_Save(BusID)
 {
-	// Setup local variables
-	new file[100], File:BFile, LineFromFile[100], ParameterName[50], ParameterValue[50];
-
-	format(file, sizeof(file), BusinessFile, BusID); // Construct the complete filename for this business-file
-
-	if (fexist(file))
-	{
-		BFile = fopen(file, io_read); // Open the housefile for reading
-
-		fread(BFile, LineFromFile); // Read the first line of the file
-
-		// Keep reading until the end of the file is found (no more data)
-		while (strlen(LineFromFile) > 0)
-		{
-			StripNewLine(LineFromFile); // Strip any newline characters from the LineFromFile
-			sscanf(LineFromFile, "s[50]s[50]", ParameterName, ParameterValue); // Extract parametername and parametervalue
-
-			// Store the proper value in the proper place
-			if (strcmp(ParameterName, "BusinessName", false) == 0) // If the parametername is correct ("BusinessName")
-			    format(ABusinessData[BusID][BusinessName], 24, ParameterValue); // Store the BusinessName
-			if (strcmp(ParameterName, "BusinessX", false) == 0) // If the parametername is correct ("BusinessX")
-				ABusinessData[BusID][BusinessX] = floatstr(ParameterValue); // Store the BusinessX
-			if (strcmp(ParameterName, "BusinessY", false) == 0) // If the parametername is correct ("BusinessY")
-				ABusinessData[BusID][BusinessY] = floatstr(ParameterValue); // Store the BusinessY
-			if (strcmp(ParameterName, "BusinessZ", false) == 0) // If the parametername is correct ("BusinessZ")
-				ABusinessData[BusID][BusinessZ] = floatstr(ParameterValue); // Store the BusinessZ
-			if (strcmp(ParameterName, "BusinessType", false) == 0) // If the parametername is correct ("BusinessType")
-				ABusinessData[BusID][BusinessType] = strval(ParameterValue); // Store the BusinessType
-			if (strcmp(ParameterName, "BusinessLevel", false) == 0) // If the parametername is correct ("BusinessLevel")
-				ABusinessData[BusID][BusinessLevel] = strval(ParameterValue); // Store the BusinessLevel
-			if (strcmp(ParameterName, "LastTransaction", false) == 0) // If the parametername is correct ("LastTransaction")
-				ABusinessData[BusID][LastTransaction] = strval(ParameterValue); // Store the LastTransaction
-			if (strcmp(ParameterName, "Owned", false) == 0) // If the parametername is correct ("Owned")
-			{
-			    if (strcmp(ParameterValue, "Yes", false) == 0) // If the value "Yes" was read
-					ABusinessData[BusID][Owned] = true; // House is owned
-				else
-					ABusinessData[BusID][Owned] = false; // House is not owned
-			}
-			if (strcmp(ParameterName, "Owner", false) == 0) // If the parametername is correct ("Owner")
-			    format(ABusinessData[BusID][Owner], 24, ParameterValue);
-			
-			if (strcmp(ParameterName, "AutoEvictDays", false) == 0) // If the parametername is correct ("AutoEvictDays")
-				ABusinessData[BusID][AutoEvictDays] = strval(ParameterValue); // Store the AutoEvictDays
-
-            // Read the next line of the file
-			fread(BFile, LineFromFile);
-		}
-
-        // Close the file
-		fclose(BFile);
-
-        // Return if the file was read correctly
-		return 1;
-	}
-	else
-	    return 0; // Return 0 if the file couldn't be read (doesn't exist)
+   new query[512];
+   
+   // Check if business exists in database
+   mysql_format(Database, query, sizeof(query), "SELECT `BusinessID` FROM `businesses` WHERE `BusinessID` = %d LIMIT 1", BusID);
+   new Cache:result = mysql_query(Database, query);
+   
+   if (cache_num_rows() > 0)
+   {
+   	// Update existing business
+   	cache_delete(result);
+   	mysql_format(Database, query, sizeof(query), 
+   		"UPDATE `businesses` SET `BusinessName` = '%e', `BusinessX` = %f, `BusinessY` = %f, `BusinessZ` = %f, `BusinessType` = %d, `BusinessLevel` = %d, `LastTransaction` = %d, `Owned` = %d, `Owner` = '%e', `AutoEvictDays` = %d, `LastAccess` = NOW() WHERE `BusinessID` = %d",
+   		ABusinessData[BusID][BusinessName],
+   		ABusinessData[BusID][BusinessX],
+   		ABusinessData[BusID][BusinessY],
+   		ABusinessData[BusID][BusinessZ],
+   		ABusinessData[BusID][BusinessType],
+   		ABusinessData[BusID][BusinessLevel],
+   		ABusinessData[BusID][LastTransaction],
+   		ABusinessData[BusID][Owned],
+   		ABusinessData[BusID][Owner],
+   		ABusinessData[BusID][AutoEvictDays],
+   		BusID
+   	);
+   }
+   else
+   {
+   	// Insert new business
+   	cache_delete(result);
+   	mysql_format(Database, query, sizeof(query), 
+   		"INSERT INTO `businesses` (`BusinessID`, `BusinessName`, `BusinessX`, `BusinessY`, `BusinessZ`, `BusinessType`, `BusinessLevel`, `LastTransaction`, `Owned`, `Owner`, `AutoEvictDays`) VALUES (%d, '%e', %f, %f, %f, %d, %d, %d, %d, '%e', %d)",
+   		BusID,
+   		ABusinessData[BusID][BusinessName],
+   		ABusinessData[BusID][BusinessX],
+   		ABusinessData[BusID][BusinessY],
+   		ABusinessData[BusID][BusinessZ],
+   		ABusinessData[BusID][BusinessType],
+   		ABusinessData[BusID][BusinessLevel],
+   		ABusinessData[BusID][LastTransaction],
+   		ABusinessData[BusID][Owned],
+   		ABusinessData[BusID][Owner],
+   		ABusinessData[BusID][AutoEvictDays]
+   	);
+   }
+   
+   mysql_query(Database, query);
+   
+   if (CheckMySQLError("Business_Save"))
+   	return 0;
+   
+   return 1;
 }
 
-// This function will save the given business
-BusinessFile_Save(BusID)
+// Load player's businesses from MySQL database
+PlayerBusinesses_Load(playerid)
 {
-	new file[100], File:BFile, LineForFile[100];
-
-    // Construct the complete filename for this business
-	format(file, sizeof(file), BusinessFile, BusID);
-
-	BFile = fopen(file, io_write); // Open the business-file for writing
-
-	format(LineForFile, sizeof(LineForFile), "BusinessName %s\r\n", ABusinessData[BusID][BusinessName]); // Construct the line: "BusinessName <BusinessName>"
-	fwrite(BFile, LineForFile); // And save it to the file
-	format(LineForFile, sizeof(LineForFile), "BusinessX %f\r\n", ABusinessData[BusID][BusinessX]); // Construct the line: "BusinessX <BusinessX>"
-	fwrite(BFile, LineForFile); // And save it to the file
-	format(LineForFile, sizeof(LineForFile), "BusinessY %f\r\n", ABusinessData[BusID][BusinessY]); // Construct the line: "BusinessY <BusinessY>"
-	fwrite(BFile, LineForFile); // And save it to the file
-	format(LineForFile, sizeof(LineForFile), "BusinessZ %f\r\n", ABusinessData[BusID][BusinessZ]); // Construct the line: "BusinessZ <BusinessZ>"
-	fwrite(BFile, LineForFile); // And save it to the file
-	format(LineForFile, sizeof(LineForFile), "BusinessType %i\r\n", ABusinessData[BusID][BusinessType]); // Construct the line: "BusinessType <BusinessType>"
-	fwrite(BFile, LineForFile); // And save it to the file
-	format(LineForFile, sizeof(LineForFile), "BusinessLevel %i\r\n", ABusinessData[BusID][BusinessLevel]); // Construct the line: "BusinessLevel <BusinessLevel>"
-	fwrite(BFile, LineForFile); // And save it to the file
-	format(LineForFile, sizeof(LineForFile), "LastTransaction %i\r\n", ABusinessData[BusID][LastTransaction]); // Construct the line: "LastTransaction <LastTransaction>"
-	fwrite(BFile, LineForFile); // And save it to the file
-
-	ABusinessData[BusID][AutoEvictDays] = AutoEvict[AEDays]; // Update the AutoEvictDays for this business when the player logs out
-	format(LineForFile, sizeof(LineForFile), "AutoEvictDays %i\r\n", AutoEvict[AEDays]); // Construct the line: "AutoEvictDays <AutoEvictDays>"
-	fwrite(BFile, LineForFile); // And save it to the file
-
-	if (ABusinessData[BusID][Owned] == true) // Check if the house is owned
-	{
-		format(LineForFile, sizeof(LineForFile), "Owned Yes\r\n"); // Construct the line: "Owned Yes"
-		fwrite(BFile, LineForFile); // And save it to the file
-	}
-	else
-	{
-		format(LineForFile, sizeof(LineForFile), "Owned No\r\n"); // Construct the line: "Owned No"
-		fwrite(BFile, LineForFile); // And save it to the file
-	}
-
-	format(LineForFile, sizeof(LineForFile), "Owner %s\r\n", ABusinessData[BusID][Owner]); // Construct the line: "Owner <Owner>"
-	fwrite(BFile, LineForFile); // And save it to the file
-
-	fclose(BFile); // Close the file
-
-	return 1;
+   new Name[24], query[256];
+   GetPlayerName(playerid, Name, sizeof(Name));
+   
+   // Clear current business slots
+   for (new i = 0; i < MAX_BUSINESSPERPLAYER; i++)
+   	APlayerData[playerid][Business][i] = 0;
+   
+   // Load player's businesses from database
+   mysql_format(Database, query, sizeof(query), "SELECT `BusinessID` FROM `businesses` WHERE `Owner` = '%e' ORDER BY `BusinessID` ASC", Name);
+   mysql_tquery(Database, query, "OnPlayerBusinessesLoaded", "i", playerid);
+   
+   return 1;
 }
 
-
+// Callback for loading player businesses
+forward OnPlayerBusinessesLoaded(playerid);
+public OnPlayerBusinessesLoaded(playerid)
+{
+   new rows = cache_num_rows();
+   new BusinessIndex = 0;
+   
+   if (rows > 0)
+   {
+   	for (new i = 0; i < rows && BusinessIndex < MAX_BUSINESSPERPLAYER; i++)
+   	{
+   		new BusinessID;
+   		cache_get_value_name_int(i, "BusinessID", BusinessID);
+   		
+   		// Store business ID in player's business array
+   		APlayerData[playerid][Business][BusinessIndex] = BusinessID;
+   		BusinessIndex++;
+   	}
+   	
+   	printf("Loaded %d businesses for player %s", rows, APlayerData[playerid][PlayerName]);
+   }
+   
+   return 1;
+}
 
 // This function will load the player's bank account and process transfers that were made to his account when he was offline
 BankFile_Load(playerid)
 {
-    new Name[24], query[256], Message[128], OldBankMoney, NewBankMoney;
-    
-    GetPlayerName(playerid, Name, sizeof(Name));
-    
-    // Check if the player has a bank account
-    mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", Name);
-    new Cache:result = mysql_query(Database, query);
-    
-    // Check if player has a bank account
-    if (cache_num_rows() > 0) {
-        // Send a message to the player to inform him that he has a bank account
-        SendClientMessage(playerid, COLOR_DODGERBLUE, "You have a bank-account. Use {FFBB00}/bank{00BBFF} to access it");
-        
-        // Load bank data from database
-        cache_get_value_name(0, "BankPassword", APlayerData[playerid][BankPassword], BCRYPT_HASH_LENGTH);
-        cache_get_value_name_int(0, "BankMoney", APlayerData[playerid][BankMoney]);
-        cache_get_value_name_int(0, "LastInterestTime", APlayerData[playerid][LastInterestTime]);
-        
-        // Calculate interest if enabled
-        if (InterestEnabled == true && APlayerData[playerid][LastInterestTime] < CurrentInterestTime)
-        {
-            OldBankMoney = APlayerData[playerid][BankMoney];
-            
-            // Calculate compound interest for each time period missed
-            new Float:CurrentAmount = float(APlayerData[playerid][BankMoney]);
-            new PeriodsToCalculate = CurrentInterestTime - APlayerData[playerid][LastInterestTime];
-            
-            // Apply compound interest for each period
-            for (new i = 0; i < PeriodsToCalculate; i++)
-            {
-                // Calculate interest on the current amount (compound interest)
-                new Float:InterestEarned = floatmul(CurrentAmount, BankInterest);
-                CurrentAmount = floatadd(CurrentAmount, InterestEarned);
-            }
-            
-            // Convert back to integer and update player's bank money
-            APlayerData[playerid][BankMoney] = floatround(CurrentAmount, floatround_floor);
-            NewBankMoney = APlayerData[playerid][BankMoney];
-            
-            // Save the CurrentInterestTime for this bank account
-            APlayerData[playerid][LastInterestTime] = CurrentInterestTime;
-            
-            // Only show message and save if interest was actually earned
-            if (NewBankMoney > OldBankMoney)
-            {
-                // Inform the player that he received interest on his bank account and how much
-                format(Message, sizeof(Message), "{00BBFF}You've received {FFBB00}$%i{00BBFF} interest on your bank account over %d period(s)", NewBankMoney - OldBankMoney, PeriodsToCalculate);
-                SendClientMessage(playerid, COLOR_WHITE, Message);
-                
-                // Update the bank data after interest calculation
-                BankFile_Save(playerid);
-            }
-        }
-        
-        // Check for any pending transfers to this player
-        mysql_format(Database, query, sizeof(query), "SELECT * FROM `bank_transfers` WHERE `ReceiverName` = '%e' AND `IsProcessed` = 0", Name);
-        new Cache:transferResult = mysql_query(Database, query);
-        
-        new rows = cache_num_rows();
-        if (rows > 0) {
-            new TransferAmount, SenderName[24], TransferTimeStamp, TransferTime[24], Day, Month, Year, Hour, Minute;
-            
-            for (new i = 0; i < rows; i++) {
-                cache_get_value_name_int(i, "TransferAmount", TransferAmount);
-                cache_get_value_name(i, "SenderName", SenderName, sizeof(SenderName));
-                cache_get_value_name_int(i, "TransferTime", TransferTimeStamp);
-                
-                // Format the transfer time
-                getdate(Year, Month, Day);
-                gettime(Hour, Minute);
-                format(TransferTime, sizeof(TransferTime), "%02d/%02d/%04d %02d:%02d", Day, Month, Year, Hour, Minute);
-                
-                // Add the money to the player's bank account
-                APlayerData[playerid][BankMoney] += TransferAmount;
-                
-                // Inform the player about the transfer
-                format(Message, sizeof(Message), "{00BBFF}Player {FFBB00}%s{00BBFF} has transferred {FFBB00}$%i{00BBFF}", SenderName, TransferAmount);
-                SendClientMessage(playerid, COLOR_WHITE, Message);
-                format(Message, sizeof(Message), "{00BBFF}to your bank account on {FFBB00}%s", TransferTime);
-                SendClientMessage(playerid, COLOR_WHITE, Message);
-            }
-            
-            // Mark all transfers as processed
-            mysql_format(Database, query, sizeof(query), "UPDATE `bank_transfers` SET `IsProcessed` = 1 WHERE `ReceiverName` = '%e' AND `IsProcessed` = 0", Name);
-            mysql_query(Database, query);
-            
-            // Update the bank account with the new money
-            BankFile_Save(playerid);
-        }
-        
-        cache_delete(transferResult);
-        cache_delete(result);
-        return 1;
-    } else {
-        // Send a message if the player doesn't have a bank account
-        SendClientMessage(playerid, COLOR_DODGERBLUE, "You don't have a bank-account. Use {FFBB00}/bank{00BBFF} to set it up");
-        cache_delete(result);
-        return 0;
-    }
+  new Name[24], query[256], Message[128], OldBankMoney, NewBankMoney;
+  
+  GetPlayerName(playerid, Name, sizeof(Name));
+  
+  // Check if the player has a bank account
+  mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", Name);
+  new Cache:result = mysql_query(Database, query);
+  
+  // Check if player has a bank account
+  if (cache_num_rows() > 0) {
+      // Send a message to the player to inform him that he has a bank account
+      SendClientMessage(playerid, COLOR_DODGERBLUE, "You have a bank-account. Use {FFBB00}/bank{00BBFF} to access it");
+      
+      // Load bank data from database
+      cache_get_value_name(0, "BankPassword", APlayerData[playerid][BankPassword], BCRYPT_HASH_LENGTH);
+      cache_get_value_name_int(0, "BankMoney", APlayerData[playerid][BankMoney]);
+      cache_get_value_name_int(0, "LastInterestTime", APlayerData[playerid][LastInterestTime]);
+      
+      // Calculate interest if enabled
+      if (InterestEnabled == true && APlayerData[playerid][LastInterestTime] < CurrentInterestTime)
+      {
+          OldBankMoney = APlayerData[playerid][BankMoney];
+          
+          // Calculate compound interest for each time period missed
+          new Float:CurrentAmount = float(APlayerData[playerid][BankMoney]);
+          new PeriodsToCalculate = CurrentInterestTime - APlayerData[playerid][LastInterestTime];
+          
+          // Apply compound interest for each period
+          for (new i = 0; i < PeriodsToCalculate; i++)
+          {
+              // Calculate interest on the current amount (compound interest)
+              new Float:InterestEarned = floatmul(CurrentAmount, BankInterest);
+              CurrentAmount = floatadd(CurrentAmount, InterestEarned);
+          }
+          
+          // Convert back to integer and update player's bank money
+          APlayerData[playerid][BankMoney] = floatround(CurrentAmount, floatround_floor);
+          NewBankMoney = APlayerData[playerid][BankMoney];
+          
+          // Save the CurrentInterestTime for this bank account
+          APlayerData[playerid][LastInterestTime] = CurrentInterestTime;
+          
+          // Only show message and save if interest was actually earned
+          if (NewBankMoney > OldBankMoney)
+          {
+              // Inform the player that he received interest on his bank account and how much
+              format(Message, sizeof(Message), "{00BBFF}You've received {FFBB00}$%i{00BBFF} interest on your bank account over %d period(s)", NewBankMoney - OldBankMoney, PeriodsToCalculate);
+              SendClientMessage(playerid, COLOR_WHITE, Message);
+              
+              // Update the bank data after interest calculation
+              BankFile_Save(playerid);
+          }
+      }
+      
+      // Check for any pending transfers to this player
+      mysql_format(Database, query, sizeof(query), "SELECT * FROM `bank_transfers` WHERE `ReceiverName` = '%e' AND `IsProcessed` = 0", Name);
+      new Cache:transferResult = mysql_query(Database, query);
+      
+      new rows = cache_num_rows();
+      if (rows > 0) {
+          new TransferAmount, SenderName[24], TransferTimeStamp, TransferTime[24], Day, Month, Year, Hour, Minute;
+          
+          for (new i = 0; i < rows; i++) {
+              cache_get_value_name_int(i, "TransferAmount", TransferAmount);
+              cache_get_value_name(i, "SenderName", SenderName, sizeof(SenderName));
+              cache_get_value_name_int(i, "TransferTime", TransferTimeStamp);
+              
+              // Format the transfer time
+              getdate(Year, Month, Day);
+              gettime(Hour, Minute);
+              format(TransferTime, sizeof(TransferTime), "%02d/%02d/%04d %02d:%02d", Day, Month, Year, Hour, Minute);
+              
+              // Add the money to the player's bank account
+              APlayerData[playerid][BankMoney] += TransferAmount;
+              
+              // Inform the player about the transfer
+              format(Message, sizeof(Message), "{00BBFF}Player {FFBB00}%s{00BBFF} has transferred {FFBB00}$%i{00BBFF}", SenderName, TransferAmount);
+              SendClientMessage(playerid, COLOR_WHITE, Message);
+              format(Message, sizeof(Message), "{00BBFF}to your bank account on {FFBB00}%s", TransferTime);
+              SendClientMessage(playerid, COLOR_WHITE, Message);
+          }
+          
+          // Mark all transfers as processed
+          mysql_format(Database, query, sizeof(query), "UPDATE `bank_transfers` SET `IsProcessed` = 1 WHERE `ReceiverName` = '%e' AND `IsProcessed` = 0", Name);
+          mysql_query(Database, query);
+          
+          // Update the bank account with the new money
+          BankFile_Save(playerid);
+      }
+      
+      cache_delete(transferResult);
+      cache_delete(result);
+      return 1;
+  } else {
+      // Send a message if the player doesn't have a bank account
+      SendClientMessage(playerid, COLOR_DODGERBLUE, "You don't have a bank-account. Use {FFBB00}/bank{00BBFF} to set it up");
+      cache_delete(result);
+      return 0;
+  }
 }
 
 // This function will save the player's bank account
 BankFile_Save(playerid)
 {
-    // Setup local variables
-    new Name[24], query[256];
-    
-    GetPlayerName(playerid, Name, sizeof(Name));
-    
-    // Check if the player already has a bank account
-    mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", Name);
-    new Cache:result = mysql_query(Database, query);
-    
-    if (CheckMySQLError("BankFile_Save - SELECT"))
-    {
-        cache_delete(result);
-        return 0;
-    }
-    
-    if (cache_num_rows() > 0) {
-        // Update existing bank account
-        mysql_format(Database, query, sizeof(query), "UPDATE `banks` SET `BankPassword` = '%e', `BankMoney` = %d, `LastInterestTime` = %d WHERE `PlayerName` = '%e'",
-            APlayerData[playerid][BankPassword],
-            APlayerData[playerid][BankMoney],
-            APlayerData[playerid][LastInterestTime],
-            Name
-        );
-        mysql_query(Database, query);
-        
-        if (CheckMySQLError("BankFile_Save - UPDATE"))
-        {
-            cache_delete(result);
-            return 0;
-        }
-    } else {
-        // Create a new bank account
-        mysql_format(Database, query, sizeof(query), "INSERT INTO `banks` (`PlayerName`, `BankPassword`, `BankMoney`, `LastInterestTime`) VALUES ('%e', '%e', %d, %d)",
-            Name,
-            APlayerData[playerid][BankPassword],
-            APlayerData[playerid][BankMoney],
-            APlayerData[playerid][LastInterestTime]
-        );
-        mysql_query(Database, query);
-        
-        if (CheckMySQLError("BankFile_Save - INSERT"))
-        {
-            cache_delete(result);
-            return 0;
-        }
-    }
-    
-    cache_delete(result);
-    return 1;
+  // Setup local variables
+  new Name[24], query[256];
+  
+  GetPlayerName(playerid, Name, sizeof(Name));
+  
+  // Check if the player already has a bank account
+  mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", Name);
+  new Cache:result = mysql_query(Database, query);
+  
+  if (CheckMySQLError("BankFile_Save - SELECT"))
+  {
+      cache_delete(result);
+      return 0;
+  }
+  
+  if (cache_num_rows() > 0) {
+      // Update existing bank account
+      mysql_format(Database, query, sizeof(query), "UPDATE `banks` SET `BankPassword` = '%e', `BankMoney` = %d, `LastInterestTime` = %d WHERE `PlayerName` = '%e'",
+          APlayerData[playerid][BankPassword],
+          APlayerData[playerid][BankMoney],
+          APlayerData[playerid][LastInterestTime],
+          Name
+      );
+      mysql_query(Database, query);
+      
+      if (CheckMySQLError("BankFile_Save - UPDATE"))
+      {
+          cache_delete(result);
+          return 0;
+      }
+  } else {
+      // Create a new bank account
+      mysql_format(Database, query, sizeof(query), "INSERT INTO `banks` (`PlayerName`, `BankPassword`, `BankMoney`, `LastInterestTime`) VALUES ('%e', '%e', %d, %d)",
+          Name,
+          APlayerData[playerid][BankPassword],
+          APlayerData[playerid][BankMoney],
+          APlayerData[playerid][LastInterestTime]
+      );
+      mysql_query(Database, query);
+      
+      if (CheckMySQLError("BankFile_Save - INSERT"))
+      {
+          cache_delete(result);
+          return 0;
+      }
+  }
+  
+  cache_delete(result);
+  return 1;
 }
-
-
 
 // This function loads the file that holds the current interest-time
 InterestTime_Load()
 {
-    // Setup local variables
-    new query[128];
-    
-    // Query the database for the current interest time
-    mysql_format(Database, query, sizeof(query), "SELECT * FROM `settings` WHERE `setting_name` = 'CurrentInterestTime' LIMIT 1");
-    new Cache:result = mysql_query(Database, query);
-    
-    if (cache_num_rows() > 0)
-    {
-        cache_get_value_name_int(0, "setting_value", CurrentInterestTime);
-        cache_delete(result);
-        return 1;
-    }
-    else
-    {
-        // Create a default entry if not found
-        mysql_format(Database, query, sizeof(query), "INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('CurrentInterestTime', 0)");
-        mysql_query(Database, query);
-        CurrentInterestTime = 0;
-        cache_delete(result);
-        return 0;
-    }
+  // Setup local variables
+  new query[128];
+  
+  // Query the database for the current interest time
+  mysql_format(Database, query, sizeof(query), "SELECT * FROM `settings` WHERE `setting_name` = 'CurrentInterestTime' LIMIT 1");
+  new Cache:result = mysql_query(Database, query);
+  
+  if (cache_num_rows() > 0)
+  {
+      cache_get_value_name_int(0, "setting_value", CurrentInterestTime);
+      cache_delete(result);
+      return 1;
+  }
+  else
+  {
+      // Create a default entry if not found
+      mysql_format(Database, query, sizeof(query), "INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('CurrentInterestTime', 0)");
+      mysql_query(Database, query);
+      CurrentInterestTime = 0;
+      cache_delete(result);
+      return 0;
+  }
 }
 
 // This function saves the file that holds the current interest-time
 InterestTime_Save()
 {
-    new query[128];
-    
-    // Update the current interest time in the database
-    mysql_format(Database, query, sizeof(query), "UPDATE `settings` SET `setting_value` = %d WHERE `setting_name` = 'CurrentInterestTime'", CurrentInterestTime);
-    mysql_query(Database, query);
-    
-    return 1;
+  new query[128];
+  
+  // Update the current interest time in the database
+  mysql_format(Database, query, sizeof(query), "UPDATE `settings` SET `setting_value` = %d WHERE `setting_name` = 'CurrentInterestTime'", CurrentInterestTime);
+  mysql_query(Database, query);
+  
+  return 1;
 }
 
 // Function to check MySQL errors and log them
 stock CheckMySQLError(const function_name[])
 {
-    new error[256];
-    mysql_errno(Database);
-    
-    if (mysql_errno(Database) != 0)
-    {
-        mysql_error(error, sizeof(error), Database);
-        printf("[MYSQL ERROR] in %s: Error %d - %s", function_name, mysql_errno(Database), error);
-        return 1;
-    }
-    return 0;
+  new error[256];
+  mysql_errno(Database);
+  
+  if (mysql_errno(Database) != 0)
+  {
+      mysql_error(error, sizeof(error), Database);
+      printf("[MYSQL ERROR] in %s: Error %d - %s", function_name, mysql_errno(Database), error);
+      return 1;
+  }
+  return 0;
 }

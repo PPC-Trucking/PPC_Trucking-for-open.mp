@@ -36,8 +36,6 @@ House_GetFreeCarSlot(HouseID)
 	return -1;
 }
 
-
-
 // This function sets ownership to the given player
 House_SetOwner(playerid, HouseID)
 {
@@ -66,12 +64,17 @@ House_SetOwner(playerid, HouseID)
 		AHouseData[HouseID][HouseLevel] = 1;
 		// Set the default house-name ("<playername>'s house")
 		format(AHouseData[HouseID][HouseName], 100, TXT_DefaultHouseName, Name);
+		// Update AutoEvictDays to current days
+		AHouseData[HouseID][AutoEvictDays] = AutoEvict[AEDays];
 
 		// Also, update the pickup and map-icon for this house
 		House_UpdateEntrance(HouseID);
 
-		// Save the player-file (and also his houses/businesses)
-		PlayerFile_Save(playerid);
+		// Save the house to MySQL database
+		House_Save(HouseID);
+		
+		// Save player data to MySQL database
+		SavePlayerData(playerid);
 
 		// Let the player know he bought the house
 		format(Msg, sizeof(Msg), TXT_PlayerBoughtHouse, AHouseData[HouseID][HousePrice]);
@@ -400,3 +403,157 @@ House_PlayerIsOwner(playerid, HouseID)
 	return 0;
 }
 
+// This function will evict the given house and clear ownership
+House_Evict(HouseID)
+{
+	// Setup local variables
+	new Msg[128], Name[24], bool:PlayerOnline = false;
+
+	// Check if the house is owned
+	if (AHouseData[HouseID][Owned] == true)
+	{
+		// Get the owner name
+		format(Name, sizeof(Name), AHouseData[HouseID][Owner]);
+
+		// Loop through all players to find the owner (if he's online)
+		for (new pid; pid < MAX_PLAYERS; pid++)
+		{
+			// Check if this player is online
+		    if (IsPlayerConnected(pid))
+		    {
+		        // Get that player's name
+		        new PlayerName[24];
+		        GetPlayerName(pid, PlayerName, sizeof(PlayerName));
+		        // Compare if this player has the same name as the owner of the house
+				if (strcmp(AHouseData[HouseID][Owner], PlayerName, false) == 0)
+				{
+				    // Set PlayerOnline to "true"
+				    PlayerOnline = true;
+
+					// Inform the player that his house is being deleted
+					format(Msg, sizeof(Msg), "{FF0000}Your house {FFFF00}\"%s\"{FF0000} is being evicted", AHouseData[HouseID][HouseName]);
+					SendClientMessage(pid, COLOR_WHITE, Msg);
+
+					// Also remove the HouseID from his list of houses
+					for (new HouseSlot; HouseSlot < MAX_HOUSESPERPLAYER; HouseSlot++)
+					    // Check if the house is stored in this houseslot
+					    if (APlayerData[pid][Houses][HouseSlot] == HouseID)
+					        // If the house is stored in this slot, clear the slot
+					        APlayerData[pid][Houses][HouseSlot] = 0;
+
+					// Save the player's account to database
+					SavePlayerData(pid);
+
+					// Stop this For-loop, as the owner was already found and informed
+					break;
+				}
+		    }
+		}
+	}
+
+	// First remove all vehicles from the house
+	House_RemoveVehicles(HouseID);
+
+	// Clear ownership of the house
+	AHouseData[HouseID][Owned] = false;
+	format(AHouseData[HouseID][Owner], 24, "");
+	format(AHouseData[HouseID][HouseName], 100, "House");
+	AHouseData[HouseID][HouseLevel] = 1;
+	AHouseData[HouseID][AutoEvictDays] = 0;
+
+	// Update the entrance of the house
+	House_UpdateEntrance(HouseID);
+
+	// Save the house to database
+	House_Save(HouseID);
+	
+	printf("House %d evicted (was owned by %s)", HouseID, Name);
+}
+
+// This function will delete the given house completely
+House_Delete(HouseID)
+{
+	// First remove all vehicles from the house
+	House_RemoveVehicles(HouseID);
+
+	// Remove the house entrance (pickup, 3DText, map-icon)
+	if (IsValidDynamicPickup(AHouseData[HouseID][PickupID]))
+		DestroyDynamicPickup(AHouseData[HouseID][PickupID]);
+	if (IsValidDynamic3DTextLabel(AHouseData[HouseID][DoorText]))
+		DestroyDynamic3DTextLabel(AHouseData[HouseID][DoorText]);
+	if (IsValidDynamicMapIcon(AHouseData[HouseID][MapIconID]))
+		DestroyDynamicMapIcon(AHouseData[HouseID][MapIconID]);
+
+	// Clear all data from the house
+	format(AHouseData[HouseID][HouseName], 100, "");
+	AHouseData[HouseID][HouseX] = 0.0;
+	AHouseData[HouseID][HouseY] = 0.0;
+	AHouseData[HouseID][HouseZ] = 0.0;
+	AHouseData[HouseID][HouseLevel] = 0;
+	AHouseData[HouseID][HouseMaxLevel] = 0;
+	AHouseData[HouseID][HousePrice] = 0;
+	AHouseData[HouseID][Owned] = false;
+	format(AHouseData[HouseID][Owner], 24, "");
+	AHouseData[HouseID][Insurance] = 0;
+	AHouseData[HouseID][AutoEvictDays] = 0;
+	AHouseData[HouseID][PickupID] = 0;
+	AHouseData[HouseID][DoorText] = Text3D:INVALID_3DTEXT_ID;
+	AHouseData[HouseID][MapIconID] = 0;
+
+	// Clear all vehicle slots
+	for (new i = 0; i < 10; i++)
+		AHouseData[HouseID][VehicleIDs][i] = 0;
+
+	// Delete the house from MySQL database
+	new query[128];
+	mysql_format(Database, query, sizeof(query), "DELETE FROM `houses` WHERE `HouseID` = %d", HouseID);
+	mysql_query(Database, query);
+	
+	// Also delete all house vehicles from database
+	mysql_format(Database, query, sizeof(query), "DELETE FROM `house_vehicles` WHERE `HouseID` = %d", HouseID);
+	mysql_query(Database, query);
+
+	printf("House %d completely deleted from database", HouseID);
+}
+
+// Load player's houses from MySQL database
+PlayerHouses_Load(playerid)
+{
+	new Name[24], query[256];
+	GetPlayerName(playerid, Name, sizeof(Name));
+	
+	// Clear current house slots
+	for (new i = 0; i < MAX_HOUSESPERPLAYER; i++)
+		APlayerData[playerid][Houses][i] = 0;
+	
+	// Load player's houses from database
+	mysql_format(Database, query, sizeof(query), "SELECT `HouseID` FROM `houses` WHERE `Owner` = '%e' ORDER BY `HouseID` ASC", Name);
+	mysql_tquery(Database, query, "OnPlayerHousesLoaded", "i", playerid);
+	
+	return 1;
+}
+
+// Callback for loading player houses
+forward OnPlayerHousesLoaded(playerid);
+public OnPlayerHousesLoaded(playerid)
+{
+	new rows = cache_num_rows();
+	new HouseIndex = 0;
+	
+	if (rows > 0)
+	{
+		for (new i = 0; i < rows && HouseIndex < MAX_HOUSESPERPLAYER; i++)
+		{
+			new HouseID;
+			cache_get_value_name_int(i, "HouseID", HouseID);
+			
+			// Store house ID in player's house array
+			APlayerData[playerid][Houses][HouseIndex] = HouseID;
+			HouseIndex++;
+		}
+		
+		printf("Loaded %d houses for player %s", rows, APlayerData[playerid][PlayerName]);
+	}
+	
+	return 1;
+}

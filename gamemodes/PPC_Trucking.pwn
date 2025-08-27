@@ -105,9 +105,6 @@ public OnGameModeInit()
 	// Start the timer that checks the toll-gates
 	SetTimer("Toll", 1000, true);
 
-	// Fix the bugged houses (after fixing the houses, you can remove this line, as it's not needed anymore)
-	//FixHouses();
-
 	// While the gamemode starts, start the global timer, and run it every second
 	SetTimer("GlobalTimer", 1000, true);
 
@@ -288,8 +285,17 @@ public OnPlayerDisconnect(playerid, reason)
 	// If the player entered a proper password (the player has an account)
 	if (strlen(APlayerData[playerid][PlayerPassword]) != 0)
 	{
-	    // Save the player data and his houses
-		PlayerFile_Save(playerid);
+		// Save the player data to MySQL database
+		SavePlayerData(playerid);
+		
+		// Save all owned houses to MySQL database
+		for (new i; i < MAX_HOUSESPERPLAYER; i++)
+		{
+			if (APlayerData[playerid][Houses][i] != 0)
+			{
+				House_Save(APlayerData[playerid][Houses][i]);
+			}
+		}
 	}
 
 	// Stop any job that may have started (this also clears all mission data)

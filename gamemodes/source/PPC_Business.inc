@@ -5,7 +5,7 @@ public Business_TransactionTimer()
 	// Increase the variable by one
     BusinessTransactionTime++;
 
-	// And save it to the file
+	// And save it to the MySQL database
 	BusinessTime_Save();
 }
 
@@ -59,12 +59,15 @@ Business_SetOwner(playerid, BusID)
 		format(ABusinessData[BusID][BusinessName], 100, ABusinessInteriors[BusType][InteriorName]);
 		// Store the current transaction-time (this is used so the player can only retrieve cash from the business from the moment he bought it)
 		ABusinessData[BusID][LastTransaction] = BusinessTransactionTime;
+		// Update AutoEvictDays to current days
+		ABusinessData[BusID][AutoEvictDays] = AutoEvict[AEDays];
 
 		// Also, update 3DText of this business
 		Business_UpdateEntrance(BusID);
 
-		// Save the player-file (and also his houses/businesses)
-		PlayerFile_Save(playerid);
+		// Save to MySQL database
+		Business_Save(BusID);
+		SavePlayerData(playerid);
 
 		// Let the player know he bought the business
 		format(Msg, sizeof(Msg), TXT_PlayerBoughtBusiness, ABusinessInteriors[BusType][BusPrice]);
@@ -191,6 +194,9 @@ Business_PayEarnings(playerid, BusID)
 	// Inform the player that he has earned money from his business
 	format(Msg, sizeof(Msg), "{00FF00}Your business has earned {FFFF00}$%i{00FF00} since your last withdrawl", Earnings);
 	SendClientMessage(playerid, COLOR_WHITE, Msg);
+
+	// Save the updated business data to MySQL database
+	Business_Save(BusID);
 }
 
 // This function returns "1" if the given player is the owner of the given business
@@ -207,4 +213,3 @@ Business_PlayerIsOwner(playerid, BusID)
 	// If the player doesn't own the business, return 0
 	return 0;
 }
-

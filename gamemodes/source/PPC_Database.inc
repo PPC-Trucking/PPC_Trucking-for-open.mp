@@ -230,6 +230,12 @@ public OnPlayerAccountLoad(playerid)
 
     // Load the player file
     PlayerFile_Load(playerid);
+    
+    // Load player houses from MySQL database
+    PlayerHouses_Load(playerid);
+
+    // Load player businesses from MySQL database
+    PlayerBusinesses_Load(playerid);
 
     // Load the player's bank account
     BankFile_Load(playerid);
