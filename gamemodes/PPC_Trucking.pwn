@@ -133,7 +133,7 @@ public OnPlayerConnect(playerid)
 	SetTimerEx("CheckPlayerLoggedIn", (TIMESPAN_LOGIN * 1000), false, "i", playerid);
 
 	// Setup local variables
-	new Name[MAX_PLAYER_NAME], NewPlayerMsg[128], HouseID;
+	new Name[MAX_PLAYER_NAME], NewPlayerMsg[128];
 
 	// Setup a PVar to allow cross-script money-transfers (only from filterscript to this mainscript) and scorepoints
 	SetPVarInt(playerid, "PVarMoney", 0);
@@ -148,7 +148,7 @@ public OnPlayerConnect(playerid)
 	format(NewPlayerMsg, sizeof(NewPlayerMsg), TXT_PlayerJoinedServer, Name, playerid);
 	SendClientMessageToAll(COLOR_WHITE, NewPlayerMsg);
 
-	// Try to load the player's datafile ("PlayerFile_Load" returns "1" is the file has been read, "0" when the file cannot be read)
+	// Check the player's MySQL account record and continue in OnPlayerAccountCheck
     new query[256];
     mysql_format(Database, query, sizeof (query), "SELECT * FROM `players` WHERE `PlayerName` = '%e' LIMIT 1", APlayerData[playerid][PlayerName]);
     mysql_tquery(Database, query, "OnPlayerAccountCheck", "i", playerid);
@@ -162,25 +162,7 @@ public OnPlayerConnect(playerid)
 	TextDrawUseBox(APlayerData[playerid][MissionText], true); // Set the missiontext to display inside a box
 	TextDrawBoxColour(APlayerData[playerid][MissionText], 0x00000066); // Set the box color of the missiontext
 	
-	// Setup local variables
-	new BusID;
-	// Update the AutoEvict-time for this player's houses and businesses
-	for (new HouseSlot; HouseSlot < MAX_HOUSESPERPLAYER; HouseSlot++)
-	{
-	// Get the HouseID from this slot
-		HouseID = APlayerData[playerid][Houses][HouseSlot];
-	// Check if there is a house in this slot
-		if (HouseID != 0)
-			AHouseData[HouseID][AutoEvictDays] = AutoEvict[AEDays];
-	}
-	for (new BusSlot; BusSlot < MAX_BUSINESSPERPLAYER; BusSlot++)
-	{
-	// Get the BusID from this slot
-		BusID = APlayerData[playerid][Business][BusSlot];
-	// Check if there is a business in this slot
-		if (BusID != 0)
-			ABusinessData[BusID][AutoEvictDays] = AutoEvict[AEDays];
-	}
+	// Property AutoEvict freshness is refreshed after MySQL ownership loads complete.
 
 	return 1;
 }
@@ -285,17 +267,9 @@ public OnPlayerDisconnect(playerid, reason)
 	// If the player entered a proper password (the player has an account)
 	if (strlen(APlayerData[playerid][PlayerPassword]) != 0)
 	{
-		// Save the player data to MySQL database
-		SavePlayerData(playerid);
-		
-		// Save all owned houses to MySQL database
-		for (new i; i < MAX_HOUSESPERPLAYER; i++)
-		{
-			if (APlayerData[playerid][Houses][i] != 0)
-			{
-				House_Save(APlayerData[playerid][Houses][i]);
-			}
-		}
+		// Save player data and all owned properties to MySQL database.
+		if (APlayerData[playerid][LoggedIn] && !PlayerPersistence_Save(playerid))
+		    printf("[MYSQL WARNING] Failed to save all persistence for disconnecting player %d", playerid);
 	}
 
 	// Stop any job that may have started (this also clears all mission data)
@@ -1311,7 +1285,8 @@ public OnVehicleDeath(vehicleid)
 			Vehicle_Delete(vehicleid);
 
 		    // Save the house (and linked vehicles)
-		    HouseFile_Save(HouseID);
+		    if (!House_Save(HouseID))
+		        printf("[MYSQL WARNING] Failed to save house %d after uninsured vehicle %d was destroyed", HouseID, vehicleid);
 		}
 	}
 

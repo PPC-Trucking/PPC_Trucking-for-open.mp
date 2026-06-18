@@ -544,7 +544,7 @@ public Bank_InterestTimer()
 					// Save the CurrentInterestTime for this bank account
 					APlayerData[playerid][LastInterestTime] = CurrentInterestTime;
 					// Save the player's bank account
-					BankFile_Save(playerid);
+					BankAccount_Save(playerid);
 
 					// Inform the player that he received interest on his bank account and how much
 					format(Msg, sizeof(Msg), "{00BBFF}You've received {FFBB00}$%i{00BBFF} interest on your bank account", InterestAmount);

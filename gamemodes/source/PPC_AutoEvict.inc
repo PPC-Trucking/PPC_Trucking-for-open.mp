@@ -45,55 +45,69 @@ public AutoEvictTimer()
 AutoEvictProperties()
 {
 	// Setup local variables
-	new Msg[128], query[256];
+	new query[256];
 
 	// Log the eviction start to MySQL database
-	mysql_format(Database, query, sizeof(query), 
-		"INSERT INTO `auto_evict_log` (`log_message`, `log_date`) VALUES ('Auto-eviction started for day: %d', NOW())", 
+	mysql_format(Database, query, sizeof(query),
+		"INSERT INTO `auto_evict_log` (`log_message`, `log_date`) VALUES ('Auto-eviction started for day: %d', NOW())",
 		AutoEvict[AEDays]);
-	mysql_query(Database, query);
+	mysql_query(Database, query, false);
 
 	// Query all owned houses that need to be auto-evicted
-	mysql_format(Database, query, sizeof(query), 
-		"SELECT `HouseID`, `HouseName`, `Owner` FROM `houses` WHERE `Owned` = 1 AND `AutoEvictDays` < %d", 
+	mysql_format(Database, query, sizeof(query),
+		"SELECT `HouseID`, `HouseName`, `Owner` FROM `houses` WHERE `Owned` = 1 AND `AutoEvictDays` < %d",
 		AutoEvict[AEDays] - AutoEvictTime);
 	mysql_tquery(Database, query, "OnAutoEvictHousesFound", "");
 
 	// Query all owned businesses that need to be auto-evicted
-	mysql_format(Database, query, sizeof(query), 
-		"SELECT `BusinessID`, `BusinessName`, `Owner` FROM `businesses` WHERE `Owned` = 1 AND `AutoEvictDays` < %d", 
+	mysql_format(Database, query, sizeof(query),
+		"SELECT `BusinessID`, `BusinessName`, `Owner` FROM `businesses` WHERE `Owned` = 1 AND `AutoEvictDays` < %d",
 		AutoEvict[AEDays] - AutoEvictTime);
 	mysql_tquery(Database, query, "OnAutoEvictBusinessesFound", "");
 
 	// Log the eviction end to MySQL database
-	mysql_format(Database, query, sizeof(query), 
-		"INSERT INTO `auto_evict_log` (`log_message`, `log_date`) VALUES ('Auto-eviction ended for day: %d', NOW())", 
+	mysql_format(Database, query, sizeof(query),
+		"INSERT INTO `auto_evict_log` (`log_message`, `log_date`) VALUES ('Auto-eviction ended for day: %d', NOW())",
 		AutoEvict[AEDays]);
-	mysql_query(Database, query);
+	mysql_query(Database, query, false);
 }
 
 // Callback for houses that need to be auto-evicted
 forward OnAutoEvictHousesFound();
 public OnAutoEvictHousesFound()
 {
+	new Cache:evictRows = cache_save();
 	new rows = cache_num_rows();
-	
+
 	if (rows > 0)
 	{
 		for (new i = 0; i < rows; i++)
 		{
-			new HouseID, HouseName[100], Owner[24];
+			cache_set_active(evictRows);
+
+			new HouseID, HouseNameBuf[100], OwnerName[24];
 			cache_get_value_name_int(i, "HouseID", HouseID);
-			cache_get_value_name(i, "HouseName", HouseName, 100);
-			cache_get_value_name(i, "Owner", Owner, 24);
-			
+			cache_get_value_name(i, "HouseName", HouseNameBuf, 100);
+			cache_get_value_name(i, "Owner", OwnerName, 24);
+
+			new query[160];
+			mysql_format(Database, query, sizeof(query), "SELECT `HouseID` FROM `houses` WHERE `HouseID` = %d AND `Owned` = 1 AND `AutoEvictDays` < %d LIMIT 1", HouseID, AutoEvict[AEDays] - AutoEvictTime);
+			new Cache:confirm = mysql_query(Database, query);
+			new bool:stillEligible = (cache_num_rows() > 0);
+			cache_delete(confirm);
+
+			if (!stillEligible)
+				continue;
+
 			// Auto-Evict the house
 			House_Evict(HouseID);
 			// Log the auto-eviction
-			LogAutoEvict(1, HouseName, Owner);
+			LogAutoEvict(1, HouseNameBuf, OwnerName);
 		}
 	}
-	
+
+	cache_delete(evictRows);
+
 	return 1;
 }
 
@@ -101,24 +115,38 @@ public OnAutoEvictHousesFound()
 forward OnAutoEvictBusinessesFound();
 public OnAutoEvictBusinessesFound()
 {
+	new Cache:evictRows = cache_save();
 	new rows = cache_num_rows();
-	
+
 	if (rows > 0)
 	{
 		for (new i = 0; i < rows; i++)
 		{
-			new BusinessID, BusinessName[100], Owner[24];
+			cache_set_active(evictRows);
+
+			new BusinessID, BusinessNameBuf[100], BusinessOwnerName[24];
 			cache_get_value_name_int(i, "BusinessID", BusinessID);
-			cache_get_value_name(i, "BusinessName", BusinessName, 100);
-			cache_get_value_name(i, "Owner", Owner, 24);
-			
+			cache_get_value_name(i, "BusinessName", BusinessNameBuf, 100);
+			cache_get_value_name(i, "Owner", BusinessOwnerName, 24);
+
+			new query[160];
+			mysql_format(Database, query, sizeof(query), "SELECT `BusinessID` FROM `businesses` WHERE `BusinessID` = %d AND `Owned` = 1 AND `AutoEvictDays` < %d LIMIT 1", BusinessID, AutoEvict[AEDays] - AutoEvictTime);
+			new Cache:confirm = mysql_query(Database, query);
+			new bool:stillEligible = (cache_num_rows() > 0);
+			cache_delete(confirm);
+
+			if (!stillEligible)
+				continue;
+
 			// Auto-Evict the business
 			Business_Evict(BusinessID);
 			// Log the auto-eviction
-			LogAutoEvict(2, BusinessName, Owner);
+			LogAutoEvict(2, BusinessNameBuf, BusinessOwnerName);
 		}
 	}
-	
+
+	cache_delete(evictRows);
+
 	return 1;
 }
 
@@ -147,47 +175,47 @@ LogAutoEvict(PropertyType, PropertyName[], PropertyOwner[])
 	else
 		format(Msg, sizeof(Msg), "Business auto-evicted: %s, owner: %s", PropertyName, PropertyOwner);
 
-	mysql_format(Database, query, sizeof(query), 
+	mysql_format(Database, query, sizeof(query),
 		"INSERT INTO `auto_evict_log` (`log_message`, `log_date`) VALUES ('%e', NOW())", Msg);
-	mysql_query(Database, query);
+	mysql_query(Database, query, false);
 }
 
 // This function loads the auto-evict time from MySQL database
 AutoEvict_Load()
 {
 	new query[256];
-	
+
 	// Try to load auto-evict data from settings table
-	mysql_format(Database, query, sizeof(query), 
+	mysql_format(Database, query, sizeof(query),
 		"SELECT `setting_value` FROM `settings` WHERE `setting_name` = 'AutoEvictMinutes' LIMIT 1");
 	new Cache:result = mysql_query(Database, query);
-	
+
 	if (cache_num_rows() > 0)
 		cache_get_value_name_int(0, "setting_value", AutoEvict[AEMinutes]);
 	else
 		AutoEvict[AEMinutes] = 0;
 	cache_delete(result);
-	
-	mysql_format(Database, query, sizeof(query), 
+
+	mysql_format(Database, query, sizeof(query),
 		"SELECT `setting_value` FROM `settings` WHERE `setting_name` = 'AutoEvictHours' LIMIT 1");
 	result = mysql_query(Database, query);
-	
+
 	if (cache_num_rows() > 0)
 		cache_get_value_name_int(0, "setting_value", AutoEvict[AEHours]);
 	else
 		AutoEvict[AEHours] = 0;
 	cache_delete(result);
-	
-	mysql_format(Database, query, sizeof(query), 
+
+	mysql_format(Database, query, sizeof(query),
 		"SELECT `setting_value` FROM `settings` WHERE `setting_name` = 'AutoEvictDays' LIMIT 1");
 	result = mysql_query(Database, query);
-	
+
 	if (cache_num_rows() > 0)
 		cache_get_value_name_int(0, "setting_value", AutoEvict[AEDays]);
 	else
 		AutoEvict[AEDays] = 0;
 	cache_delete(result);
-	
+
 	return 1;
 }
 
@@ -195,25 +223,25 @@ AutoEvict_Load()
 AutoEvict_Save()
 {
 	new query[256];
-	
+
 	// Save Minutes
-	mysql_format(Database, query, sizeof(query), 
+	mysql_format(Database, query, sizeof(query),
 		"INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('AutoEvictMinutes', '%d') ON DUPLICATE KEY UPDATE `setting_value` = '%d'",
 		AutoEvict[AEMinutes], AutoEvict[AEMinutes]);
-	mysql_query(Database, query);
-	
+	mysql_query(Database, query, false);
+
 	// Save Hours
-	mysql_format(Database, query, sizeof(query), 
+	mysql_format(Database, query, sizeof(query),
 		"INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('AutoEvictHours', '%d') ON DUPLICATE KEY UPDATE `setting_value` = '%d'",
 		AutoEvict[AEHours], AutoEvict[AEHours]);
-	mysql_query(Database, query);
-	
+	mysql_query(Database, query, false);
+
 	// Save Days
-	mysql_format(Database, query, sizeof(query), 
+	mysql_format(Database, query, sizeof(query),
 		"INSERT INTO `settings` (`setting_name`, `setting_value`) VALUES ('AutoEvictDays', '%d') ON DUPLICATE KEY UPDATE `setting_value` = '%d'",
 		AutoEvict[AEDays], AutoEvict[AEDays]);
-	mysql_query(Database, query);
-	
+	mysql_query(Database, query, false);
+
 	return 1;
 }
 
@@ -223,10 +251,10 @@ Business_Evict(BusID)
 	// Clear ownership of the business
 	ABusinessData[BusID][Owned] = false;
 	format(ABusinessData[BusID][Owner], 24, "");
-	
+
 	// Update business entrance
 	Business_UpdateEntrance(BusID);
-	
-	// Save business to file
-	BusinessFile_Save(BusID);
+
+	// Save business to MySQL.
+	Business_Save(BusID);
 }

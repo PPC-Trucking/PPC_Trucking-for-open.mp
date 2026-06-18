@@ -221,7 +221,7 @@ public Trucker_LoadUnload(playerid)
 			// Increase the stats for completing a trucking job
 			APlayerData[playerid][StatsTruckerJobs]++;
 			// Also save the data (in case the server crashes, progress would be lost)
-			PlayerFile_Save(playerid);
+			PlayerPersistence_Save(playerid);
 
 			// End the current trucker job (clear mission-data)
 			Trucker_EndJob(playerid);

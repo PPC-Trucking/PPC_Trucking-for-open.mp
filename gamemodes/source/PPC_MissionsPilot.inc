@@ -249,7 +249,7 @@ public Pilot_Plane_LoadUnload(playerid)
 			// Increase the stats for completing a pilot job
 			APlayerData[playerid][StatsPilotJobs]++;
 			// Also save the data (in case the server crashes, progress would be lost)
-			PlayerFile_Save(playerid);
+			PlayerPersistence_Save(playerid);
 
 			// End the current pilot job (clear mission-data)
 			Pilot_EndJob(playerid);

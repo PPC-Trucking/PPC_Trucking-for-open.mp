@@ -151,7 +151,7 @@ Mafia_OnPlayerEnterCheckpoint(playerid)
 		// Increase the stats for completing a delivery of a stolen mafiaload
 		APlayerData[playerid][StatsMafiaStolen]++;
 		// Also save the data (in case the server crashes, progress would be lost)
-		PlayerFile_Save(playerid);
+		PlayerPersistence_Save(playerid);
 
 		// Cleanup
 		APlayerData[playerid][VehicleID] = 0;
@@ -278,7 +278,7 @@ public Mafia_LoadUnload(playerid)
 			// Increase the stats for completing a mafia job
 			APlayerData[playerid][StatsMafiaJobs]++;
 			// Also save the data (in case the server crashes, progress would be lost)
-			PlayerFile_Save(playerid);
+			PlayerPersistence_Save(playerid);
 
 			// End the current mafia job (clear mission-data)
 			Mafia_EndJob(playerid);

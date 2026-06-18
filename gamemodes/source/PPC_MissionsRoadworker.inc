@@ -193,7 +193,7 @@ Roadworker_EnterCheckpoint(playerid)
 					// Also increase the stats
 					APlayerData[playerid][StatsRoadworkerJobs]++;
 					// Save the player's account
-					PlayerFile_Save(playerid);
+					PlayerPersistence_Save(playerid);
 			    }
 			}
 		}
@@ -241,7 +241,7 @@ public Roadworker_RepairCamera(playerid)
 	// Also increase the stats
 	APlayerData[playerid][StatsRoadworkerJobs]++;
 	// Save the player's account
-	PlayerFile_Save(playerid);
+	PlayerPersistence_Save(playerid);
 
 	// Get a random speedcamera (don't allow the function to choose the same camera that just has been fixed)
 	CamID = GetRandomCamera(APlayerData[playerid][JobLoc1]);

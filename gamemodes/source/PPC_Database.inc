@@ -123,11 +123,6 @@ public OnPlayerFinishRegistration(playerid)
     APlayerData[playerid][PlayerID] = cache_insert_id(); // Get the Database ID of the player
 	APlayerData[playerid][LoggedIn] = true; // The player has logged in properly
 
-    // Create a player file
-    PlayerFile_Create(playerid);
-
-    // Load the player file
-    PlayerFile_Load(playerid);
 
 	SendClientMessage(playerid, COLOR_WHITE, TXT_AccountRegistered);
     return 1;
@@ -182,9 +177,6 @@ public OnPlayerAccountLoad(playerid)
         return 0;
     }
 
-    // Mark the player as logged in
-    APlayerData[playerid][LoggedIn] = true;
-
     // Load player data from the database
     cache_get_value_name_int(0, "PlayerID", APlayerData[playerid][PlayerID]);
     cache_get_value_name_int(0, "PlayerLevel", APlayerData[playerid][PlayerLevel]);
@@ -228,17 +220,27 @@ public OnPlayerAccountLoad(playerid)
         return 0;
     }
 
-    // Load the player file
-    PlayerFile_Load(playerid);
-    
-    // Load player houses from MySQL database
-    PlayerHouses_Load(playerid);
+    // Load player houses from MySQL database before marking login complete.
+    if (!PlayerHouses_Load(playerid))
+    {
+        SendClientMessage(playerid, COLOR_RED, "Database error loading your houses. Please contact an administrator.");
+        SetTimerEx("TimedKick", 1000, false, "i", playerid);
+        return 0;
+    }
 
-    // Load player businesses from MySQL database
-    PlayerBusinesses_Load(playerid);
+    // Load player businesses from MySQL database before marking login complete.
+    if (!PlayerBusinesses_Load(playerid))
+    {
+        SendClientMessage(playerid, COLOR_RED, "Database error loading your businesses. Please contact an administrator.");
+        SetTimerEx("TimedKick", 1000, false, "i", playerid);
+        return 0;
+    }
 
     // Load the player's bank account
-    BankFile_Load(playerid);
+    BankAccount_Load(playerid);
+
+    // Mark the player as logged in only after required persistence is loaded.
+    APlayerData[playerid][LoggedIn] = true;
 
     // Set the player's wanted level
     SetPlayerWantedLevel(playerid, APlayerData[playerid][WantedLevel]);

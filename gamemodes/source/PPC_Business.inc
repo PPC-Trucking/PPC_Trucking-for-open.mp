@@ -66,8 +66,11 @@ Business_SetOwner(playerid, BusID)
 		Business_UpdateEntrance(BusID);
 
 		// Save to MySQL database
-		Business_Save(BusID);
-		SavePlayerData(playerid);
+		if (!Business_Save(BusID) || !SavePlayerData(playerid))
+		{
+		    SendClientMessage(playerid, COLOR_RED, "Database error saving the bought business");
+		    return 1;
+		}
 
 		// Let the player know he bought the business
 		format(Msg, sizeof(Msg), TXT_PlayerBoughtBusiness, ABusinessInteriors[BusType][BusPrice]);
@@ -196,7 +199,8 @@ Business_PayEarnings(playerid, BusID)
 	SendClientMessage(playerid, COLOR_WHITE, Msg);
 
 	// Save the updated business data to MySQL database
-	Business_Save(BusID);
+	if (!Business_Save(BusID) || !SavePlayerData(playerid))
+	    SendClientMessage(playerid, COLOR_RED, "Database error saving business earnings");
 }
 
 // This function returns "1" if the given player is the owner of the given business

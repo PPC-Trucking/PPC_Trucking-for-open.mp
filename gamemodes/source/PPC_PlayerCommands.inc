@@ -125,7 +125,7 @@ COMMAND:createhouse(playerid, params[])
 		    break; // Stop searching, the first free HouseID has been found now
 
     // Check if the house-limit has been reached yet
-	if (HouseID > MAX_HOUSES) {
+	if (HouseID >= MAX_HOUSES) {
 		format(Message, sizeof(Message), TXT_HouseMaxReached, MAX_HOUSES);
 		return SendClientMessage(playerid, COLOR_RED, Message);
 	}
@@ -147,7 +147,11 @@ COMMAND:createhouse(playerid, params[])
 	House_CreateEntrance(HouseID);
 
 	// Save the house
-	HouseFile_Save(HouseID);
+	if (!House_Save(HouseID))
+	{
+	    SendClientMessage(playerid, COLOR_RED, "Database error saving the created house");
+	    return 1;
+	}
 
 	// Inform the player that he created a new house
 	format(Message, sizeof(Message), TXT_HouseCreated, HouseID);
@@ -186,6 +190,9 @@ COMMAND:delhouse(playerid, params[])
 		return SendClientMessage(playerid, COLOR_RED, Message);
 	}
 
+	if (HouseID <= 0 || HouseID >= MAX_HOUSES)
+		return SendClientMessage(playerid, COLOR_RED, TXT_HouseIDNotFound);
+
 	// Check if the house does not exist
 	if (AHouseData[HouseID][PickupID] == 0)
 		return SendClientMessage(playerid, COLOR_RED, TXT_HouseIDNotFound);
@@ -199,7 +206,8 @@ COMMAND:delhouse(playerid, params[])
 		return SendClientMessage(playerid, COLOR_RED, TXT_HouseNotInRange);
 
 	// Delete the house using MySQL function
-	House_Delete(HouseID);
+	if (!House_Delete(HouseID))
+		return SendClientMessage(playerid, COLOR_RED, "Failed to delete house from database");
 
 	// Let the player know he deleted the house
 	SendClientMessage(playerid, COLOR_GREEN, TXT_HouseDeleted);
@@ -550,8 +558,8 @@ COMMAND:park(playerid, params[])
 	// Let the player know he parked his vehicle
 	SendClientMessage(playerid, COLOR_GREEN, TXT_VehicleParked);
 
-	// Save the player-file (and his houses)
-	PlayerFile_Save(playerid);
+	// Save the player data (and owned properties)
+	PlayerPersistence_Save(playerid);
 
 	// Let the server know that this was a valid command
 	return 1;
@@ -1565,7 +1573,7 @@ COMMAND:unban(playerid, params[])
 {
 	// Setup local variables
 	new PlayerToUnban[MAX_PLAYER_NAME], Message[128], Name[MAX_PLAYER_NAME];
-	new file[100], File:PFile, LineForFile[100];
+	new query[256];
 
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/unban", params);
@@ -1583,21 +1591,22 @@ COMMAND:unban(playerid, params[])
 	// Get the name of the admin
 	GetPlayerName(playerid, Name, sizeof(Name));
 
-	// Construct the complete filename for this player's account
-	format(file, sizeof(file), PlayerFile, PlayerToUnban);
+	mysql_format(Database, query, sizeof(query), "SELECT `PlayerID` FROM `players` WHERE `PlayerName` = '%e' LIMIT 1", PlayerToUnban);
+	new Cache:result = mysql_query(Database, query);
 
-	// Check if the file does not exist
-	if (!fexist(file))
+	if (cache_num_rows() == 0)
+	{
+		cache_delete(result);
 		return SendClientMessage(playerid, COLOR_RED, TXT_PlayerAccountNotFound);
+	}
 
-	// Open the playerfile for appending (this command only appends a new line to overwrite the bantime)
-	PFile = fopen(file, io_append);
-	// Construct the line: "BanTime <0>"
-	format(LineForFile, sizeof(LineForFile), "BanTime 0\r\n");
-	// And save it to the file
-	fwrite(PFile, LineForFile);
-	// Close the file
-	fclose(PFile);
+	cache_delete(result);
+
+	mysql_format(Database, query, sizeof(query), "UPDATE `players` SET `BanTime` = 0 WHERE `PlayerName` = '%e'", PlayerToUnban);
+	mysql_query(Database, query, false);
+
+	if (CheckMySQLError("COMMAND:unban"))
+		return SendClientMessage(playerid, COLOR_RED, "Database error while unbanning player.");
 
 	// Inform everybody else which player was unbanned
 	format(Message, sizeof(Message), "%s %s has un-banned %s", AdminLevelName[APlayerData[playerid][PlayerLevel]], Name, PlayerToUnban);
@@ -2126,8 +2135,8 @@ COMMAND:paint(playerid, params[])
 	format(Message, sizeof(Message), TXT_VehPaintJobPaid, PRICE_PAINT_JOB);
 	SendClientMessage(playerid, COLOR_GREEN, Message);
 
-	// Save the player-file (along with the houses and businesses)
-	PlayerFile_Save(playerid);
+	// Save the player data (along with houses and businesses)
+	PlayerPersistence_Save(playerid);
 
 	// Let the server know that this was a valid command
 	return 1;
@@ -2661,7 +2670,7 @@ COMMAND:createcamera(playerid, params[])
 				GetPlayerName(playerid, Name, sizeof(Name));
 
 				// Save the camera to database
-				if (CameraFile_Save(CamID, Name))
+				if (Camera_Save(CamID, Name))
 				{
 					// Let the player know he created a new camera
 					format(Message, sizeof(Message), "You've created a speed-camera with ID: %i", CamID + 1);
@@ -2716,7 +2725,7 @@ COMMAND:delcamera(playerid, params[])
 					if (IsPlayerInRangeOfPoint(playerid, 5.0, ACameras[CamID][CamX], ACameras[CamID][CamY], ACameras[CamID][CamZ]))
 					{
 						// Delete from database
-						if (CameraFile_Delete(CamID))
+						if (Camera_Delete(CamID))
 						{
 							// Delete both camera objects
 							DestroyObject(ACameras[CamID][CamObj1]);
@@ -3208,7 +3217,7 @@ COMMAND:createbusiness(playerid, params[])
 COMMAND:delbusiness(playerid, params[])
 {
 	// Setup local variables
-	new file[100], Message[128];
+	new Message[128];
 
 	// Send the command to all admins so they can see it
 	SendAdminText(playerid, "/delbusiness", params);
@@ -3234,29 +3243,11 @@ COMMAND:delbusiness(playerid, params[])
 							// Check if the player is in range of the business-pickup
 							if (IsPlayerInRangeOfPoint(playerid, 2.5, ABusinessData[BusID][BusinessX], ABusinessData[BusID][BusinessY], ABusinessData[BusID][BusinessZ]))
 							{
-								// Clear all data of the business
-	                            ABusinessData[BusID][BusinessName] = 0;
-	                            ABusinessData[BusID][BusinessX] = 0.0;
-	                            ABusinessData[BusID][BusinessY] = 0.0;
-	                            ABusinessData[BusID][BusinessZ] = 0.0;
-	                            ABusinessData[BusID][BusinessType] = 0;
-	                            ABusinessData[BusID][BusinessLevel] = 0;
-	                            ABusinessData[BusID][LastTransaction] = 0;
-	                            ABusinessData[BusID][Owned] = false;
-	                            ABusinessData[BusID][Owner] = 0;
-								// Destroy the mapicon, 3DText and pickup for the house
-								DestroyDynamicPickup(ABusinessData[BusID][PickupID]);
-								DestroyDynamicMapIcon(ABusinessData[BusID][MapIconID]);
-								DestroyDynamic3DTextLabel(ABusinessData[BusID][DoorText]);
-	                            ABusinessData[BusID][PickupID] = 0;
-	                            ABusinessData[BusID][MapIconID] = 0;
+								// Delete the business from MySQL and clear runtime state.
+								if (!Business_Delete(BusID))
+									return SendClientMessage(playerid, COLOR_RED, "Failed to delete business from database");
 
-								// Delete the business-file
-								format(file, sizeof(file), BusinessFile, BusID); // Construct the complete filename for this business-file
-								if (fexist(file)) // Make sure the file exists
-									fremove(file); // Delete the file
-
-								// Also let the player know he deleted the business
+								// Also let the player know he deleted the business.
 								format(Message, sizeof(Message), "{00FF00}You have deleted the business with ID: {FFFF00}%i", BusID);
 								SendClientMessage(playerid, COLOR_WHITE, Message);
 
@@ -3485,7 +3476,7 @@ COMMAND:mute(playerid, params[])
 					ShowRemainingMutedTime(playerid); // Show the remaining muted time to the admin
 
 					// Save the player-stats
-					PlayerFile_Save(OtherPlayer);
+					PlayerPersistence_Save(OtherPlayer);
 				}
 				else
 				    SendClientMessage(playerid, COLOR_RED, "That player isn't online");
@@ -3540,7 +3531,7 @@ COMMAND:unmute(playerid, params[])
 					format(Message, sizeof(Message), "You have un-muted {FFFF00}%s", Name);
 					SendClientMessage(playerid, COLOR_GREEN, Message);
 					// Save the player-stats
-					PlayerFile_Save(OtherPlayer);
+					PlayerPersistence_Save(OtherPlayer);
 				}
 				else
 				    SendClientMessage(playerid, COLOR_RED, "That player isn't online");
@@ -3638,7 +3629,7 @@ COMMAND:freeze(playerid, params[])
 					format(Message, sizeof(Message), "{00FF00}You have frozen {FFFF00}%s", Name);
 					SendClientMessage(playerid, COLOR_WHITE, Message);
 					// Save the player-stats
-					PlayerFile_Save(OtherPlayer);
+					PlayerPersistence_Save(OtherPlayer);
 				}
 				else
 				    SendClientMessage(playerid, COLOR_RED, "That player isn't online");
@@ -3749,8 +3740,8 @@ COMMAND:givecash(playerid, params[])
 						format(Message, sizeof(Message), "{00FF00}You gave {FFFF00}$%i{00FF00} to {FFFF00}%s", Money, OtherName);
 						SendClientMessage(playerid, COLOR_WHITE, Message);
 						// Save the player-stats
-						PlayerFile_Save(playerid);
-						PlayerFile_Save(OtherPlayer);
+						PlayerPersistence_Save(playerid);
+						PlayerPersistence_Save(OtherPlayer);
 					}
 					else
 					    SendClientMessage(playerid, COLOR_RED, "You don't have enough money");
@@ -4084,8 +4075,8 @@ COMMAND:clamp(playerid, params[])
 					SendClientMessage(HouseOwner, COLOR_RED, Message);
 					format(Message, sizeof(Message), "Reason: {FFFF00}%s", Reason);
 					SendClientMessage(HouseOwner, COLOR_RED, Message);
-					// Save the player's datafile (and his houses/businesses/vehicles)
-					PlayerFile_Save(HouseOwner);
+					// Save the player's data (and houses/businesses/vehicles)
+					PlayerPersistence_Save(HouseOwner);
 				}
 				else
 				    SendClientMessage(playerid, COLOR_RED, "That vehicle doesn't belong to a player, you cannot clamp it");
@@ -4434,7 +4425,7 @@ COMMAND:resetplayer(playerid, params[])
 					SendClientMessage(OtherPlayer, COLOR_RED, Message);
 
 					// Save the other player's account
-					PlayerFile_Save(OtherPlayer);
+					PlayerPersistence_Save(OtherPlayer);
 				}
 				else
 				    SendClientMessage(playerid, COLOR_RED, "That player isn't connected");
@@ -4513,7 +4504,7 @@ COMMAND:fixplayer(playerid, params[])
 					SendClientMessage(OtherPlayer, COLOR_WHITE, Message);
 
 					// Save the other player's account
-					PlayerFile_Save(OtherPlayer);
+					PlayerPersistence_Save(OtherPlayer);
 				}
 				else
 				    SendClientMessage(playerid, COLOR_RED, "That player isn't connected");
@@ -4732,7 +4723,7 @@ COMMAND:setscore(playerid, params[])
 					format(Message, sizeof(Message), "{00FF00}You've set the score of {FFFF00}%s{00FF00} to {FFFF00}%i", OtherName, pScore);
 					SendClientMessage(playerid, COLOR_WHITE, Message);
 					// Save the other player's account
-					PlayerFile_Save(OtherPlayer);
+					PlayerPersistence_Save(OtherPlayer);
 				}
 				else
 				    SendClientMessage(playerid, COLOR_RED, "That player isn't online");
@@ -4782,7 +4773,7 @@ COMMAND:setcash(playerid, params[])
 					format(Message, sizeof(Message), "{00FF00}You've set the cash of {FFFF00}%s{00FF00} to {FFFF00}%i", OtherName, pMoney);
 					SendClientMessage(playerid, COLOR_WHITE, Message);
 					// Save the other player's account
-					PlayerFile_Save(OtherPlayer);
+					PlayerPersistence_Save(OtherPlayer);
 				}
 				else
 				    SendClientMessage(playerid, COLOR_RED, "That player isn't online");
@@ -4981,8 +4972,8 @@ COMMAND:givelicense(playerid, params[])
 					// Give the other player a truckers license
 					APlayerData[OtherPlayer][TruckerLicense] = 1;
 
-					// Save the player-file (and his houses)
-					PlayerFile_Save(OtherPlayer);
+					// Save the player data (and owned properties)
+					PlayerPersistence_Save(OtherPlayer);
 
 					// Inform the admin that you've given a player a truckers license
 					format(Message, sizeof(Message), "{00FF00}You've given {FFFF00}%s{00FF00} a trucker's license", OtherName);

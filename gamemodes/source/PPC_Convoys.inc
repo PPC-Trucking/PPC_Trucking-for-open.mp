@@ -559,7 +559,7 @@ public Convoy_Timer(Convoy)
 					// Increase the stats for completing a trucking job while in a convoy
 					APlayerData[MemberID][StatsConvoyJobs]++;
 					// Also save the data (in case the server crashes, progress would be lost)
-					PlayerFile_Save(MemberID);
+					PlayerPersistence_Save(MemberID);
 
 					// End the member's job
 					Trucker_EndJob(MemberID);

@@ -128,7 +128,7 @@ public BusDriver_LoadUnload(playerid, PassengersOnBusStop)
 		// Increase the stats for completing a bus-route
 		APlayerData[playerid][StatsBusDriverJobs]++;
 		// Also save the data (in case the server crashes, progress would be lost)
-		PlayerFile_Save(playerid);
+		PlayerPersistence_Save(playerid);
 	}
 
 	// Get the data to construct the textdraw

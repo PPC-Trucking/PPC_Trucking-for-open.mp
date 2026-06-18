@@ -104,7 +104,7 @@ Assistance_FixVehicle(playerid)
 							SendClientMessage(playerid, COLOR_WHITE, Msg);
 
 							// Save the player's account
-							PlayerFile_Save(playerid);
+							PlayerPersistence_Save(playerid);
 						}
 					}
 				}

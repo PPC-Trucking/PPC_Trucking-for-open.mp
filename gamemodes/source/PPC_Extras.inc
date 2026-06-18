@@ -1,5 +1,5 @@
 
-// Setup a global array to be used for loading player-file data
+// Setup a global array used for property list dialogs
 new PropertyList[5000];
 
 

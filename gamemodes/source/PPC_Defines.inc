@@ -2,15 +2,6 @@
 // Keep the values and assignments below this line to what they are
 //************************************************************************************************************************************
 
-// Define path to player's account-files
-#define PlayerFile "ServerData/Players/%s.ini"
-#define HouseFile "ServerData/Houses/House%i.ini"
-#define CameraFile "ServerData/Cameras/Camera%i.ini"
-#define BusinessFile "ServerData/Business/Business%i.ini"
-#define BankFile "ServerData/Bank/%s.ini"
-
-
-
 // Define vehicles
 #define VehicleFlatbed			455 // Truck: Flatbed
 #define VehicleDFT30			578 // Truck: DFT-30
@@ -689,7 +680,7 @@ enum TPlayerData
 	DialogOtherPlayer, // Holds the id of the other player when viewing that other player's stats
 	DialogOtherPlayerHouse, // Holds the HouseID of the other player when viewing the stats for that house
 
-	BankPassword[24], // Bank-system: Used to hold the password to your bank-account
+	BankPassword[BCRYPT_HASH_LENGTH], // Bank-system: Holds the bcrypt hash for the bank account password
 	bool:BankLoggedIn, // Bank-system: Used to determine if you have logged in to your bank account
 	BankMoney, // Bank-system: Used to hold the money in your bank-account
 	UseMoney, // Bank-system: Used to hold the money you're be transferring to another player's account
@@ -1424,4 +1415,3 @@ new AVehicleColors[][10] =
 	{"{561A28}"},	{"{4E0E27}"},	{"{706C67}"},	{"{3B3E42}"}, // Colors 277, 278, 279, 280, 281
 	{"{2E2D33}"},	{"{7B7E7D}"},	{"{4A4442}"},	{"{28344E}"} // Colors 282, 283, 284, 285, 286
 };
-

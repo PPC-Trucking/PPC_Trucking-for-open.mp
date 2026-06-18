@@ -160,7 +160,7 @@ Courier_OnPlayerEnterCheckpoint(playerid)
 			// End the current trucker job (clear mission-data)
 			Courier_EndJob(playerid);
 			// Also save the data (in case the server crashes, progress would be lost)
-			PlayerFile_Save(playerid);
+			PlayerPersistence_Save(playerid);
 		}
 	}
 	else

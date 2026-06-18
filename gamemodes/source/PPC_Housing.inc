@@ -71,10 +71,11 @@ House_SetOwner(playerid, HouseID)
 		House_UpdateEntrance(HouseID);
 
 		// Save the house to MySQL database
-		House_Save(HouseID);
-		
-		// Save player data to MySQL database
-		SavePlayerData(playerid);
+		if (!House_Save(HouseID) || !SavePlayerData(playerid))
+		{
+		    SendClientMessage(playerid, COLOR_RED, "Database error saving the bought house");
+		    return 1;
+		}
 
 		// Let the player know he bought the house
 		format(Msg, sizeof(Msg), TXT_PlayerBoughtHouse, AHouseData[HouseID][HousePrice]);
@@ -203,66 +204,67 @@ House_UpdateEntrance(HouseID)
 	}
 }
 
-// This function adds a vehicle to the house (if possible)
-House_AddVehicle(HouseID, cModel, cPaint, const cComponents[], Float:cx, Float:cy, Float:cz, Float:crot, Col1, Col2)
+// This function adds a vehicle to a specific house slot (if possible)
+House_AddVehicleAtSlot(HouseID, CarSlot, cModel, cPaint, const cComponents[], Float:cx, Float:cy, Float:cz, Float:crot, Col1, Col2)
 {
 	// Setup local variables
-	new vid, CarSlot, vText[128];
+	new vid, vText[128];
 
-	// Get a free carslot from the house
-	CarSlot = House_GetFreeCarSlot(HouseID);
-
-	// Check if there is a free carslot
-	if (CarSlot != -1)
-	{
-		// Create a new vehicle and get the vehicle-id
-		vid = CreateVehicle(cModel, cx, cy, cz, crot, Col1, Col2, 600);
-		// Store the vehicle-id in the house's free carslot
-		AHouseData[HouseID][VehicleIDs][CarSlot] = vid;
-
-		// Save the model of the vehicle
-		AVehicleData[vid][Model] = cModel;
-		// Save the paintjob of the vehicle and apply it
-		AVehicleData[vid][PaintJob] = cPaint;
-		if (cPaint != 0)
-			ChangeVehiclePaintjob(vid, cPaint - 1);
-
-		// Also update the car-color
-		ChangeVehicleColours(vid, Col1, Col2);
-		// Save the colors of the vehicle
-		AVehicleData[vid][Color1] = Col1;
-		AVehicleData[vid][Color2] = Col2;
-
-		// Save the components of the vehicle and apply them
-		for (new i; i < 14; i++)
-		{
-			AVehicleData[vid][Components][i] = cComponents[i];
-		    // Check if the componentslot has a valid component-id
-			if (AVehicleData[vid][Components][i] != 0)
-		        AddVehicleComponent(vid, AVehicleData[vid][Components][i]); // Add the component to the vehicle
-		}
-
-		// Save the spawn-data of the vehicle
-        AVehicleData[vid][SpawnX] = cx;
-        AVehicleData[vid][SpawnY] = cy;
-        AVehicleData[vid][SpawnZ] = cz;
-        AVehicleData[vid][SpawnRot] = crot;
-		// Also set the fuel to maximum
-		AVehicleData[vid][Fuel] = MaxFuel;
-		// Also set the owner
-		AVehicleData[vid][Owned] = true;
-		format(AVehicleData[vid][Owner], 24, AHouseData[HouseID][Owner]);
-		// Save the HouseID for the vehicle
-		AVehicleData[vid][BelongsToHouse] = HouseID;
-		// Add a 3DText label to the vehicle, displaying the name of the owner
-        format(vText, sizeof(vText), "Vehicle owned by: \n%s", AVehicleData[vid][Owner]);
-        AVehicleData[vid][VehicleText] = CreateDynamic3DTextLabel(vText, COLOR_WHITE, 0.0, 0.0, 0.0, 80.0, INVALID_PLAYER_ID, vid);
-	}
-	else // No free carslot was found, return 0
+	// Check if the requested carslot is available
+	if (CarSlot < 0 || CarSlot >= 10 || AHouseData[HouseID][VehicleIDs][CarSlot] != 0)
 		return 0;
+
+	// Create a new vehicle and get the vehicle-id
+	vid = CreateVehicle(cModel, cx, cy, cz, crot, Col1, Col2, 600);
+	// Store the vehicle-id in the requested house carslot
+	AHouseData[HouseID][VehicleIDs][CarSlot] = vid;
+
+	// Save the model of the vehicle
+	AVehicleData[vid][Model] = cModel;
+	// Save the paintjob of the vehicle and apply it
+	AVehicleData[vid][PaintJob] = cPaint;
+	if (cPaint != 0)
+		ChangeVehiclePaintjob(vid, cPaint - 1);
+
+	// Also update the car-color
+	ChangeVehicleColours(vid, Col1, Col2);
+	// Save the colors of the vehicle
+	AVehicleData[vid][Color1] = Col1;
+	AVehicleData[vid][Color2] = Col2;
+
+	// Save the components of the vehicle and apply them
+	for (new i; i < 14; i++)
+	{
+		AVehicleData[vid][Components][i] = cComponents[i];
+	    // Check if the componentslot has a valid component-id
+		if (AVehicleData[vid][Components][i] != 0)
+	        AddVehicleComponent(vid, AVehicleData[vid][Components][i]); // Add the component to the vehicle
+	}
+
+	// Save the spawn-data of the vehicle
+    AVehicleData[vid][SpawnX] = cx;
+    AVehicleData[vid][SpawnY] = cy;
+    AVehicleData[vid][SpawnZ] = cz;
+    AVehicleData[vid][SpawnRot] = crot;
+	// Also set the fuel to maximum
+	AVehicleData[vid][Fuel] = MaxFuel;
+	// Also set the owner
+	AVehicleData[vid][Owned] = true;
+	format(AVehicleData[vid][Owner], 24, AHouseData[HouseID][Owner]);
+	// Save the HouseID for the vehicle
+	AVehicleData[vid][BelongsToHouse] = HouseID;
+	// Add a 3DText label to the vehicle, displaying the name of the owner
+    format(vText, sizeof(vText), "Vehicle owned by: \n%s", AVehicleData[vid][Owner]);
+    AVehicleData[vid][VehicleText] = CreateDynamic3DTextLabel(vText, COLOR_WHITE, 0.0, 0.0, 0.0, 80.0, INVALID_PLAYER_ID, vid);
 
 	// Exit the function and return the vehicle-id
 	return vid;
+}
+
+// This function adds a vehicle to the first free house slot (if possible)
+House_AddVehicle(HouseID, cModel, cPaint, const cComponents[], Float:cx, Float:cy, Float:cz, Float:crot, Col1, Col2)
+{
+	return House_AddVehicleAtSlot(HouseID, House_GetFreeCarSlot(HouseID), cModel, cPaint, cComponents, cx, cy, cz, crot, Col1, Col2);
 }
 
 // This function is used only when you respawn your vehicles by exiting your house
@@ -303,7 +305,7 @@ House_ReplaceVehicle(HouseID, CarSlot)
 	Vehicle_Delete(vid);
 
 	// Create a new vehicle in the same carslot
-	vid = House_AddVehicle(HouseID, cModel, cPaint, cComponents, Float:cx, Float:cy, Float:cz, Float:crot, Col1, Col2);
+	vid = House_AddVehicleAtSlot(HouseID, CarSlot, cModel, cPaint, cComponents, Float:cx, Float:cy, Float:cz, Float:crot, Col1, Col2);
 	// Update the fuel of the vehicle to the previous setting
 	AVehicleData[vid][Fuel] = cFuel;
 	// Update the health to what it was before and update the bodywork
@@ -407,7 +409,7 @@ House_PlayerIsOwner(playerid, HouseID)
 House_Evict(HouseID)
 {
 	// Setup local variables
-	new Msg[128], Name[24], bool:PlayerOnline = false;
+	new Msg[128], Name[24];
 
 	// Check if the house is owned
 	if (AHouseData[HouseID][Owned] == true)
@@ -422,13 +424,11 @@ House_Evict(HouseID)
 		    if (IsPlayerConnected(pid))
 		    {
 		        // Get that player's name
-		        new PlayerName[24];
-		        GetPlayerName(pid, PlayerName, sizeof(PlayerName));
+		        new PlayerNameBuf[24];
+		        GetPlayerName(pid, PlayerNameBuf, sizeof(PlayerNameBuf));
 		        // Compare if this player has the same name as the owner of the house
-				if (strcmp(AHouseData[HouseID][Owner], PlayerName, false) == 0)
+				if (strcmp(AHouseData[HouseID][Owner], PlayerNameBuf, false) == 0)
 				{
-				    // Set PlayerOnline to "true"
-				    PlayerOnline = true;
 
 					// Inform the player that his house is being deleted
 					format(Msg, sizeof(Msg), "{FF0000}Your house {FFFF00}\"%s\"{FF0000} is being evicted", AHouseData[HouseID][HouseName]);
@@ -442,7 +442,8 @@ House_Evict(HouseID)
 					        APlayerData[pid][Houses][HouseSlot] = 0;
 
 					// Save the player's account to database
-					SavePlayerData(pid);
+					if (!SavePlayerData(pid))
+					    printf("[MYSQL WARNING] Failed to save evicted house owner %d after removing house %d", pid, HouseID);
 
 					// Stop this For-loop, as the owner was already found and informed
 					break;
@@ -465,95 +466,11 @@ House_Evict(HouseID)
 	House_UpdateEntrance(HouseID);
 
 	// Save the house to database
-	House_Save(HouseID);
+	if (!House_Save(HouseID))
+	    printf("[MYSQL WARNING] Failed to save evicted house %d", HouseID);
 	
 	printf("House %d evicted (was owned by %s)", HouseID, Name);
 }
 
-// This function will delete the given house completely
-House_Delete(HouseID)
-{
-	// First remove all vehicles from the house
-	House_RemoveVehicles(HouseID);
-
-	// Remove the house entrance (pickup, 3DText, map-icon)
-	if (IsValidDynamicPickup(AHouseData[HouseID][PickupID]))
-		DestroyDynamicPickup(AHouseData[HouseID][PickupID]);
-	if (IsValidDynamic3DTextLabel(AHouseData[HouseID][DoorText]))
-		DestroyDynamic3DTextLabel(AHouseData[HouseID][DoorText]);
-	if (IsValidDynamicMapIcon(AHouseData[HouseID][MapIconID]))
-		DestroyDynamicMapIcon(AHouseData[HouseID][MapIconID]);
-
-	// Clear all data from the house
-	format(AHouseData[HouseID][HouseName], 100, "");
-	AHouseData[HouseID][HouseX] = 0.0;
-	AHouseData[HouseID][HouseY] = 0.0;
-	AHouseData[HouseID][HouseZ] = 0.0;
-	AHouseData[HouseID][HouseLevel] = 0;
-	AHouseData[HouseID][HouseMaxLevel] = 0;
-	AHouseData[HouseID][HousePrice] = 0;
-	AHouseData[HouseID][Owned] = false;
-	format(AHouseData[HouseID][Owner], 24, "");
-	AHouseData[HouseID][Insurance] = 0;
-	AHouseData[HouseID][AutoEvictDays] = 0;
-	AHouseData[HouseID][PickupID] = 0;
-	AHouseData[HouseID][DoorText] = Text3D:INVALID_3DTEXT_ID;
-	AHouseData[HouseID][MapIconID] = 0;
-
-	// Clear all vehicle slots
-	for (new i = 0; i < 10; i++)
-		AHouseData[HouseID][VehicleIDs][i] = 0;
-
-	// Delete the house from MySQL database
-	new query[128];
-	mysql_format(Database, query, sizeof(query), "DELETE FROM `houses` WHERE `HouseID` = %d", HouseID);
-	mysql_query(Database, query);
-	
-	// Also delete all house vehicles from database
-	mysql_format(Database, query, sizeof(query), "DELETE FROM `house_vehicles` WHERE `HouseID` = %d", HouseID);
-	mysql_query(Database, query);
-
-	printf("House %d completely deleted from database", HouseID);
-}
-
-// Load player's houses from MySQL database
-PlayerHouses_Load(playerid)
-{
-	new Name[24], query[256];
-	GetPlayerName(playerid, Name, sizeof(Name));
-	
-	// Clear current house slots
-	for (new i = 0; i < MAX_HOUSESPERPLAYER; i++)
-		APlayerData[playerid][Houses][i] = 0;
-	
-	// Load player's houses from database
-	mysql_format(Database, query, sizeof(query), "SELECT `HouseID` FROM `houses` WHERE `Owner` = '%e' ORDER BY `HouseID` ASC", Name);
-	mysql_tquery(Database, query, "OnPlayerHousesLoaded", "i", playerid);
-	
-	return 1;
-}
-
-// Callback for loading player houses
-forward OnPlayerHousesLoaded(playerid);
-public OnPlayerHousesLoaded(playerid)
-{
-	new rows = cache_num_rows();
-	new HouseIndex = 0;
-	
-	if (rows > 0)
-	{
-		for (new i = 0; i < rows && HouseIndex < MAX_HOUSESPERPLAYER; i++)
-		{
-			new HouseID;
-			cache_get_value_name_int(i, "HouseID", HouseID);
-			
-			// Store house ID in player's house array
-			APlayerData[playerid][Houses][HouseIndex] = HouseID;
-			HouseIndex++;
-		}
-		
-		printf("Loaded %d houses for player %s", rows, APlayerData[playerid][PlayerName]);
-	}
-	
-	return 1;
-}
+// House_Delete and player-house loading are implemented in PPC_FileOperations.inc,
+// which is the canonical MySQL persistence layer.

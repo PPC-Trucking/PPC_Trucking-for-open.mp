@@ -1383,8 +1383,12 @@ Dialog_UpgradeHouse(playerid, response, listitem)
 		// Also update the 3DText at the entrance of the house
 		House_UpdateEntrance(APlayerData[playerid][CurrentHouse]);
 
-		// Save the player-file (and his houses)
-		SavePlayerData(playerid);
+		// Save the upgraded house and updated player money to MySQL.
+		if (!House_Save(HouseID) || !SavePlayerData(playerid))
+		{
+		    SendClientMessage(playerid, COLOR_RED, "Database error saving the house upgrade");
+		    return 1;
+		}
 	}
 	else
 	    SendClientMessage(playerid, COLOR_WHITE, TXT_CannotAffordUpgrade);
@@ -1433,7 +1437,8 @@ Dialog_ChangeHouseName(playerid, response, const inputtext[])
 	SendClientMessage(playerid, COLOR_WHITE, TXT_ChangedHouseName);
 
 	// Save the house to MySQL database
-	House_Save(HouseID);
+	if (!House_Save(HouseID))
+	    SendClientMessage(playerid, COLOR_RED, "Database error saving the house name");
 
 	return 1;
 }
@@ -1520,9 +1525,13 @@ Dialog_BuyCar(playerid, response, listitem)
 			    // Check if the player has enough money to afford buying this vehicle
 			    if (APlayerData[playerid][PlayerMoney] >= (ABuyableVehicles[i][VehiclePrice]))
 			    {
-					// Add the vehicle to the house (this sets ownership and other data that's needed)
-					// The vehicles are by default created inside the hangar of KACC Military Fuels instead of near the EasterBoard Farm
-					House_AddVehicle(HouseID, ABuyableVehicles[i][CarModel], 0, cComponents, 2585.0, 2829.0, 10.9, 0.0, -1, -1);
+					// Add the vehicle to the house (this sets ownership and other data that's needed).
+					// The vehicles are by default created inside the hangar of KACC Military Fuels instead of near the EasterBoard Farm.
+					if (House_AddVehicle(HouseID, ABuyableVehicles[i][CarModel], 0, cComponents, 2585.0, 2829.0, 10.9, 0.0, -1, -1) == 0)
+					{
+					    SendClientMessage(playerid, COLOR_RED, "No free house vehicle slot is available");
+					    return 1;
+					}
 
 					// Let the player pay for buying the vehicle
 					APlayerData[playerid][PlayerMoney] = APlayerData[playerid][PlayerMoney] - ABuyableVehicles[i][VehiclePrice];
@@ -1531,8 +1540,12 @@ Dialog_BuyCar(playerid, response, listitem)
 					SendClientMessage(playerid, COLOR_WHITE, Msg);
 					SendClientMessage(playerid, COLOR_WHITE, TXT_PlayerMustUseGetVehicleAndPark);
 
-					// Save the player-file (and his houses)
-					SavePlayerData(playerid);
+					// Save the new house vehicle and updated player money to MySQL.
+					if (!House_Save(HouseID) || !SavePlayerData(playerid))
+					{
+					    SendClientMessage(playerid, COLOR_RED, "Database error saving the bought house vehicle");
+					    return 1;
+					}
 				}
 				else // The player has not enough money to buy this vehicle
 				    SendClientMessage(playerid, COLOR_WHITE, TXT_CannotAffordVehicle);
@@ -1569,8 +1582,11 @@ Dialog_BuyInsurance(playerid, response)
 	SendClientMessage(playerid, COLOR_WHITE, Msg);
 
 	// Save to MySQL database
-	House_Save(HouseID);
-	SavePlayerData(playerid);
+	if (!House_Save(HouseID) || !SavePlayerData(playerid))
+	{
+	    SendClientMessage(playerid, COLOR_RED, "Database error saving house insurance");
+	    return 1;
+	}
 
 	return 1;
 }
@@ -1618,8 +1634,11 @@ Dialog_SellHouse(playerid, response)
 	House_UpdateEntrance(HouseID);
 
 	// Save to MySQL database
-	House_Save(HouseID);
-	SavePlayerData(playerid);
+	if (!House_Save(HouseID) || !SavePlayerData(playerid))
+	{
+	    SendClientMessage(playerid, COLOR_RED, "Database error saving the sold house");
+	    return 1;
+	}
 
 	return 1;
 }
@@ -1663,8 +1682,12 @@ Dialog_SellCar(playerid, response, listitem)
 		format(Msg, sizeof(Msg), TXT_PlayerSoldVehicle, ABuyableVehicles[BuyableCarIndex][CarName], ABuyableVehicles[BuyableCarIndex][VehiclePrice] / 2);
 		SendClientMessage(playerid, COLOR_WHITE, Msg);
 
-		// Save the player-file (and his houses)
-		SavePlayerData(playerid);
+		// Save the removed house vehicle and updated player money to MySQL.
+		if (!House_Save(HouseID) || !SavePlayerData(playerid))
+		{
+		    SendClientMessage(playerid, COLOR_RED, "Database error saving the sold house vehicle");
+		    return 1;
+		}
 	}
 	else
 	    SendClientMessage(playerid, COLOR_WHITE, TXT_NoVehicleInSlot);
@@ -1828,7 +1851,11 @@ Dialog_CreateBusSelType(playerid, response, listitem)
 	Business_CreateEntrance(BusID);
 
 	// Save the business
-	Business_Save(BusID);
+	if (!Business_Save(BusID))
+	{
+	    SendClientMessage(playerid, COLOR_RED, "Database error saving the created business");
+	    return 1;
+	}
 
 	// Inform the player that he created a new house
 	format(Msg, sizeof(Msg), "{00FF00}You've succesfully created business {FF00FF}%i{00FF00}", BusID);
@@ -1876,6 +1903,12 @@ Dialog_BusinessMenu(playerid, response, listitem)
 					RewardPlayer(playerid, -UpgradePrice, 0);
 					// Update the 3DText near the business's entrance to show what level the business is
 					Business_UpdateEntrance(BusID);
+					// Persist the upgraded level and updated player money to MySQL immediately.
+					if (!Business_Save(BusID) || !SavePlayerData(playerid))
+					{
+					    SendClientMessage(playerid, COLOR_RED, "Database error saving the business upgrade");
+					    return 1;
+					}
 					// Let the player know about it
 					format(Msg, sizeof(Msg), "{00FF00}You have upgraded your business to level {FFFF00}%i", ABusinessData[BusID][BusinessLevel]);
 					SendClientMessage(playerid, COLOR_WHITE, Msg);
@@ -1940,7 +1973,8 @@ Dialog_ChangeBusinessName(playerid, response, const inputtext[])
 	SendClientMessage(playerid, COLOR_WHITE, TXT_ChangedBusinessName);
 
 	// Save to MySQL database
-	SavePlayerData(playerid);
+	if (!Business_Save(APlayerData[playerid][CurrentBusiness]))
+	    SendClientMessage(playerid, COLOR_RED, "Database error saving the business name");
 
 	return 1;
 }
@@ -1990,8 +2024,11 @@ Dialog_SellBusiness(playerid, response)
 	Business_UpdateEntrance(BusID);
 
 	// Save to MySQL database
-	SavePlayerData(playerid);
-	Business_Save(BusID);
+	if (!SavePlayerData(playerid) || !Business_Save(BusID))
+	{
+	    SendClientMessage(playerid, COLOR_RED, "Database error saving the sold business");
+	    return 1;
+	}
 
 	return 1;
 }
@@ -2147,8 +2184,9 @@ Dialog_UnclampVehicles(playerid, response)
 		format(Msg, sizeof(Msg), "{00FF00}Your vehicles have been unclamped for {FFFF00}$%i", UnclampPrice);
 		SendClientMessage(playerid, COLOR_WHITE, Msg);
 
-		// Save the player's profile
-		SavePlayerData(playerid);
+		// Save unclamped house vehicles and updated player money to MySQL.
+		if (!PlayerPersistence_Save(playerid))
+			SendClientMessage(playerid, COLOR_RED, "Database error saving unclamped vehicles");
 	}
 	else
 	    SendClientMessage(playerid, COLOR_RED, "You don't have enough money to unclamp your vehicles");
@@ -2407,7 +2445,7 @@ public OnBankPasswordHash(playerid)
    format(APlayerData[playerid][BankPassword], BCRYPT_HASH_LENGTH, hash);
    
    // Save the bank account
-   BankFile_Save(playerid);
+   BankAccount_Save(playerid);
    
    // Inform the player that he has successfully registered a bank account
    SendClientMessage(playerid, COLOR_GREEN, "You've successfully registered a bank account");
@@ -2578,7 +2616,7 @@ Dialog_BankDeposit(playerid, response, const inputtext[])
 			// Save the player's account
 			SavePlayerData(playerid);
 			// Save the bank account
-			BankFile_Save(playerid);
+			BankAccount_Save(playerid);
 			// Inform the player that his money has been deposited
 			format(Msg, sizeof(Msg), "{00FF00}You have deposited {FFFF00}$%i{00FF00} into your bank account", DepositMoney);
 			SendClientMessage(playerid, COLOR_WHITE, Msg);
@@ -2631,7 +2669,7 @@ Dialog_BankWithdraw(playerid, response, const inputtext[])
 			// Save the player's account
 			SavePlayerData(playerid);
 			// Save the bank account
-			BankFile_Save(playerid);
+			BankAccount_Save(playerid);
 			// Inform the player that his money has been withdrawn
 			format(Msg, sizeof(Msg), "{00FF00}You have withdrawn {FFFF00}$%i{00FF00} from your bank account", WithdrawMoney);
 			SendClientMessage(playerid, COLOR_WHITE, Msg);
@@ -2695,129 +2733,133 @@ Dialog_BankTransferName(playerid, response, const inputtext[])
 {
     // Just close the dialog if the player clicked "Cancel"
     if(!response) return 1;
-    
-    // Setup local variables
-    new query[300], ReceiverName[24], SenderName[24], Msg[128];
-    new Day, Month, Year, Hour, Minute, Second, TransferTime;
-    
-    // Get the playername of the sender (the player who executes the transfer)
-    format(SenderName, sizeof(SenderName), APlayerData[playerid][PlayerName]);
-    
-    // Check if there is a text entered
-    if (strlen(inputtext) == 0)
-    {
-        // Let the player know he must enter a playername or playerid into the input field
-        SendClientMessage(playerid, COLOR_RED, "You need to enter a playername OR id");
-        return 1;
-    }
-    
-    // Check if player is trying to transfer to themselves (by name)
-    if (strcmp(SenderName, inputtext, true) == 0)
-    {
-        SendClientMessage(playerid, COLOR_RED, "You cannot transfer money to yourself");
-        return 1;
-    }
-    
-    // Check if player is trying to transfer to themselves (by ID)
-    new OtherPlayer;
-    if (sscanf(inputtext, "u", OtherPlayer) == 0 && OtherPlayer == playerid)
-    {
-        SendClientMessage(playerid, COLOR_RED, "You cannot transfer money to yourself");
-        return 1;
-    }
-    
-    // Try to convert the given playername OR playerid to a playerid
-    if (sscanf(inputtext, "u", OtherPlayer) == 0 && OtherPlayer != INVALID_PLAYER_ID)
-    {
-        // Check if that other player is online (use online bank-transfer)
-        if (APlayerData[OtherPlayer][LoggedIn] == true)
-        {
-            GetPlayerName(OtherPlayer, ReceiverName, sizeof(ReceiverName));
-            
-            // Check if the receiver has a bank account
-            mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", ReceiverName);
-            new Cache:result = mysql_query(Database, query);
-            
-            if (cache_num_rows() > 0)
-			{
-				// Transfer the money from your bank account to the other player's bank account
-				APlayerData[OtherPlayer][BankMoney] = APlayerData[OtherPlayer][BankMoney] + APlayerData[playerid][UseMoney];
-				// Take the money away from your own bank account
-				APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] - APlayerData[playerid][UseMoney];
-				// Save both bank accounts
-				BankFile_Save(OtherPlayer);
-				BankFile_Save(playerid);
-				// Inform the receiver that money was transferred to his bank account
-				format(Msg, sizeof(Msg), "{00FF00}Your bank account has received a transfer of {FFFF00}$%i{00FF00} from {FFFF00}%s", APlayerData[playerid][UseMoney], SenderName);
-				SendClientMessage(OtherPlayer, COLOR_WHITE, Msg);
-				// Inform the sender that money was transferred from his bank account to the receiver
-				format(Msg, sizeof(Msg), "{00FF00}You have transferred {FFFF00}$%i{00FF00} to {FFFF00}%s{00FF00}'s bank account", APlayerData[playerid][UseMoney], ReceiverName);
-				SendClientMessage(playerid, COLOR_WHITE, Msg);
-				
-				cache_delete(result);
-				// Exit the function (bank transfer was completed), skipping offline transfer
-				return 1;
-			}
-			else // The target player is online, but has no bank account
-			{
-				format(Msg, sizeof(Msg), "{FF0000}Player {FFFF00}%s{FF0000} is online, but has no bank account, transfer failed", inputtext);
-				SendClientMessage(playerid, COLOR_WHITE, Msg);
-				cache_delete(result);
-				// Exit the function (bank transfer failed as the target player has no bank account), skipping offline transfer
-				return 1;
-			}
-        }
-    }
-    
-    // The player might be offline or doesn't exist (no player account with that name), so try to use an offline bank-transfer
-    // Check if the receiver has a bank account in the database
-    mysql_format(Database, query, sizeof(query), "SELECT * FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", inputtext);
-    new Cache:result = mysql_query(Database, query);
-    
-    if (cache_num_rows() > 0)
-    {
-        // Get the current date and time for the transfer
-        getdate(Year, Month, Day);
-        gettime(Hour, Minute, Second);
-        TransferTime = gettime(); // Unix timestamp
-        
-        // Create a transfer record
-        mysql_format(Database, query, sizeof(query), "INSERT INTO `bank_transfers` (`SenderName`, `ReceiverName`, `TransferAmount`, `TransferTime`, `IsProcessed`) VALUES ('%e', '%e', %d, %d, 0)",
-			SenderName,
-			inputtext,
-			APlayerData[playerid][UseMoney],
-			TransferTime
-		);
-		mysql_query(Database, query);
 
-		if (CheckMySQLError("Dialog_BankTransferName - INSERT transfer"))
-		{
-			// Refund the money if the transfer failed
-			APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] + APlayerData[playerid][UseMoney];
-			SendClientMessage(playerid, COLOR_RED, "Transfer failed due to database error. Money has been refunded.");
-			cache_delete(result);
-			return 1;
-		}
-        
-        // Take the money away from your own bank account
-        APlayerData[playerid][BankMoney] = APlayerData[playerid][BankMoney] - APlayerData[playerid][UseMoney];
-        // Save your bank account
-        BankFile_Save(playerid);
-        
-        // Inform the sender that the transfer was completed
-        format(Msg, sizeof(Msg), "{00FF00}Player {FFFF00}%s{00FF00} is offline and has a bank account, transfer of {FFFF00}$%i{00FF00} was successful", inputtext, APlayerData[playerid][UseMoney]);
+    new query[512], ReceiverName[24], SenderName[24], Msg[128];
+    new OtherPlayer, TransferTime;
+
+    format(SenderName, sizeof(SenderName), APlayerData[playerid][PlayerName]);
+
+    if (strlen(inputtext) == 0)
+        return SendClientMessage(playerid, COLOR_RED, "You need to enter a playername OR id");
+
+    if (strcmp(SenderName, inputtext, true) == 0)
+        return SendClientMessage(playerid, COLOR_RED, "You cannot transfer money to yourself");
+
+    if (sscanf(inputtext, "u", OtherPlayer) == 0 && OtherPlayer == playerid)
+        return SendClientMessage(playerid, COLOR_RED, "You cannot transfer money to yourself");
+
+    if (APlayerData[playerid][UseMoney] <= 0 || APlayerData[playerid][UseMoney] > APlayerData[playerid][BankMoney])
+        return SendClientMessage(playerid, COLOR_RED, "You don't have that amount of money in your bank account to transfer");
+
+    // Online bank transfer: debit, credit, and audit row commit together before in-memory balances change.
+    if (sscanf(inputtext, "u", OtherPlayer) == 0 && OtherPlayer != INVALID_PLAYER_ID && APlayerData[OtherPlayer][LoggedIn] == true)
+    {
+        GetPlayerName(OtherPlayer, ReceiverName, sizeof(ReceiverName));
+
+        mysql_format(Database, query, sizeof(query), "SELECT `BankID` FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", ReceiverName);
+        new Cache:onlineResult = mysql_query(Database, query);
+
+        if (cache_num_rows() == 0)
+        {
+            format(Msg, sizeof(Msg), "{FF0000}Player {FFFF00}%s{FF0000} is online, but has no bank account, transfer failed", inputtext);
+            SendClientMessage(playerid, COLOR_WHITE, Msg);
+            cache_delete(onlineResult);
+            return 1;
+        }
+        cache_delete(onlineResult);
+
+        mysql_query(Database, "START TRANSACTION", false);
+        if (CheckMySQLError("Dialog_BankTransferName - online START"))
+            return SendClientMessage(playerid, COLOR_RED, "Transfer failed due to database error.");
+
+        mysql_format(Database, query, sizeof(query), "UPDATE `banks` SET `BankMoney` = `BankMoney` - %d WHERE `PlayerName` = '%e' AND `BankMoney` >= %d", APlayerData[playerid][UseMoney], SenderName, APlayerData[playerid][UseMoney]);
+        new Cache:onlineDebit = mysql_query(Database, query);
+        new onlineDebitRows = cache_affected_rows();
+        cache_delete(onlineDebit);
+        if (CheckMySQLError("Dialog_BankTransferName - online debit") || onlineDebitRows == 0)
+        {
+            mysql_query(Database, "ROLLBACK", false);
+            return SendClientMessage(playerid, COLOR_RED, "Transfer failed: insufficient bank funds or database error.");
+        }
+
+        mysql_format(Database, query, sizeof(query), "UPDATE `banks` SET `BankMoney` = `BankMoney` + %d WHERE `PlayerName` = '%e'", APlayerData[playerid][UseMoney], ReceiverName);
+        new Cache:onlineCredit = mysql_query(Database, query);
+        new onlineCreditRows = cache_affected_rows();
+        cache_delete(onlineCredit);
+        if (CheckMySQLError("Dialog_BankTransferName - online credit") || onlineCreditRows == 0)
+        {
+            mysql_query(Database, "ROLLBACK", false);
+            return SendClientMessage(playerid, COLOR_RED, "Transfer failed due to receiver bank error.");
+        }
+
+        TransferTime = gettime();
+        mysql_format(Database, query, sizeof(query), "INSERT INTO `bank_transfers` (`SenderName`, `ReceiverName`, `TransferAmount`, `TransferTime`, `IsProcessed`) VALUES ('%e', '%e', %d, %d, 1)", SenderName, ReceiverName, APlayerData[playerid][UseMoney], TransferTime);
+        mysql_query(Database, query, false);
+        if (CheckMySQLError("Dialog_BankTransferName - online audit"))
+        {
+            mysql_query(Database, "ROLLBACK", false);
+            return SendClientMessage(playerid, COLOR_RED, "Transfer failed due to database error.");
+        }
+
+        mysql_query(Database, "COMMIT", false);
+        if (CheckMySQLError("Dialog_BankTransferName - online COMMIT"))
+            return SendClientMessage(playerid, COLOR_RED, "Transfer failed while committing database changes.");
+
+        APlayerData[OtherPlayer][BankMoney] += APlayerData[playerid][UseMoney];
+        APlayerData[playerid][BankMoney] -= APlayerData[playerid][UseMoney];
+
+        format(Msg, sizeof(Msg), "{00FF00}Your bank account has received a transfer of {FFFF00}$%i{00FF00} from {FFFF00}%s", APlayerData[playerid][UseMoney], SenderName);
+        SendClientMessage(OtherPlayer, COLOR_WHITE, Msg);
+        format(Msg, sizeof(Msg), "{00FF00}You have transferred {FFFF00}$%i{00FF00} to {FFFF00}%s{00FF00}'s bank account", APlayerData[playerid][UseMoney], ReceiverName);
         SendClientMessage(playerid, COLOR_WHITE, Msg);
-        
-        cache_delete(result);
         return 1;
     }
-    else
+
+    // Offline bank transfer: debit sender and create pending transfer in the same transaction.
+    mysql_format(Database, query, sizeof(query), "SELECT `BankID` FROM `banks` WHERE `PlayerName` = '%e' LIMIT 1", inputtext);
+    new Cache:result = mysql_query(Database, query);
+
+    if (cache_num_rows() == 0)
     {
         format(Msg, sizeof(Msg), "{FF0000}Account-name {FFFF00}%s{FF0000} not found, transfer failed", inputtext);
         SendClientMessage(playerid, COLOR_WHITE, Msg);
         cache_delete(result);
+        return 1;
     }
-    
+    cache_delete(result);
+
+    TransferTime = gettime();
+
+    mysql_query(Database, "START TRANSACTION", false);
+    if (CheckMySQLError("Dialog_BankTransferName - offline START"))
+        return SendClientMessage(playerid, COLOR_RED, "Transfer failed due to database error.");
+
+    mysql_format(Database, query, sizeof(query), "UPDATE `banks` SET `BankMoney` = `BankMoney` - %d WHERE `PlayerName` = '%e' AND `BankMoney` >= %d", APlayerData[playerid][UseMoney], SenderName, APlayerData[playerid][UseMoney]);
+    new Cache:offlineDebit = mysql_query(Database, query);
+    new offlineDebitRows = cache_affected_rows();
+    cache_delete(offlineDebit);
+    if (CheckMySQLError("Dialog_BankTransferName - offline debit") || offlineDebitRows == 0)
+    {
+        mysql_query(Database, "ROLLBACK", false);
+        return SendClientMessage(playerid, COLOR_RED, "Transfer failed: insufficient bank funds or database error.");
+    }
+
+    mysql_format(Database, query, sizeof(query), "INSERT INTO `bank_transfers` (`SenderName`, `ReceiverName`, `TransferAmount`, `TransferTime`, `IsProcessed`) VALUES ('%e', '%e', %d, %d, 0)", SenderName, inputtext, APlayerData[playerid][UseMoney], TransferTime);
+    mysql_query(Database, query, false);
+    if (CheckMySQLError("Dialog_BankTransferName - offline insert"))
+    {
+        mysql_query(Database, "ROLLBACK", false);
+        return SendClientMessage(playerid, COLOR_RED, "Transfer failed due to database error.");
+    }
+
+    mysql_query(Database, "COMMIT", false);
+    if (CheckMySQLError("Dialog_BankTransferName - offline COMMIT"))
+        return SendClientMessage(playerid, COLOR_RED, "Transfer failed while committing database changes.");
+
+    APlayerData[playerid][BankMoney] -= APlayerData[playerid][UseMoney];
+
+    format(Msg, sizeof(Msg), "{00FF00}Player {FFFF00}%s{00FF00} is offline and has a bank account, transfer of {FFFF00}$%i{00FF00} was successful", inputtext, APlayerData[playerid][UseMoney]);
+    SendClientMessage(playerid, COLOR_WHITE, Msg);
     return 1;
 }
 
@@ -2835,7 +2877,7 @@ Dialog_BankCancel(playerid, response)
     
     // Delete the bank account from the database
     mysql_format(Database, query, sizeof(query), "DELETE FROM `banks` WHERE `PlayerName` = '%e'", Name);
-    mysql_query(Database, query);
+    mysql_query(Database, query, false);
 
     // If there is any money left in the account, give the funds back to the player
     RewardPlayer(playerid, APlayerData[playerid][BankMoney], 0);

@@ -187,8 +187,8 @@ Police_PayFine(playerid, PlayerToFine)
 	SetPlayerWantedLevel(PlayerToFine, 0);
 
 	// Also save the data (in case the server crashes, progress would be lost)
-	PlayerFile_Save(playerid);
-	PlayerFile_Save(PlayerToFine);
+	PlayerPersistence_Save(playerid);
+	PlayerPersistence_Save(PlayerToFine);
 
 	return true;
 }
